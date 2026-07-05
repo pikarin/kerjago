@@ -64,6 +64,10 @@ export type JobDetail = {
     salary_min: number;
     salary_max: number;
     currency: CurrencyCode;
+    employment_type: EmploymentType | null;
+    work_arrangement: WorkArrangement | null;
+    experience_level: ExperienceLevel | null;
+    education_level: EducationLevel | null;
     posted_at: string | null;
     company: {
         name: string;
