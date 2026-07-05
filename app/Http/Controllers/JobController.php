@@ -8,13 +8,12 @@ use App\Enums\Currency;
 use App\Enums\EducationLevel;
 use App\Enums\EmploymentType;
 use App\Enums\ExperienceLevel;
-use App\Enums\JobSort;
 use App\Enums\JobStatus;
 use App\Enums\WorkArrangement;
+use App\Http\Requests\SearchJobsRequest;
 use App\Models\Job;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -23,28 +22,9 @@ class JobController extends Controller
     /**
      * Publicly searchable list of active jobs.
      */
-    public function index(Request $request, SearchJobs $searchJobs): Response
+    public function index(SearchJobsRequest $request, SearchJobs $searchJobs): Response
     {
-        /** @var array{q?: string|null, country?: list<string>|null, employment_type?: list<string>|null, work_arrangement?: list<string>|null, experience_level?: list<string>|null, education_level?: list<string>|null, skills?: list<string>|null, currency?: string|null, salary_min?: int|null, salary_max?: int|null, sort?: string|null} $filters */
-        $filters = $request->validate([
-            'q' => ['nullable', 'string', 'max:255'],
-            'country' => ['nullable', 'array'],
-            'country.*' => [Rule::enum(Country::class)],
-            'employment_type' => ['nullable', 'array'],
-            'employment_type.*' => [Rule::enum(EmploymentType::class)],
-            'work_arrangement' => ['nullable', 'array'],
-            'work_arrangement.*' => [Rule::enum(WorkArrangement::class)],
-            'experience_level' => ['nullable', 'array'],
-            'experience_level.*' => [Rule::enum(ExperienceLevel::class)],
-            'education_level' => ['nullable', 'array'],
-            'education_level.*' => [Rule::enum(EducationLevel::class)],
-            'skills' => ['nullable', 'array', 'max:10'],
-            'skills.*' => ['string', 'max:50'],
-            'currency' => ['nullable', Rule::enum(Currency::class)],
-            'salary_min' => ['nullable', 'integer', 'min:0'],
-            'salary_max' => ['nullable', 'integer', 'min:0'],
-            'sort' => ['nullable', Rule::enum(JobSort::class)],
-        ]);
+        $filters = $request->filters();
 
         $result = $searchJobs->handle($filters);
 
