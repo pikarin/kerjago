@@ -4,12 +4,21 @@ import Heading from '@/components/Heading.vue';
 import JobForm from '@/components/JobForm.vue';
 import { dashboard } from '@/routes';
 import { create, index, store } from '@/routes/employer/jobs';
-import type { CountryCode, CurrencyCode, JobStatus } from '@/types/kerjago';
+import type {
+    CountryCode,
+    CurrencyCode,
+    FacetOption,
+    JobStatus,
+} from '@/types/kerjago';
 
 defineProps<{
     countries: CountryCode[];
     currencies: CurrencyCode[];
     statuses: JobStatus[];
+    employmentTypes: FacetOption[];
+    workArrangements: FacetOption[];
+    experienceLevels: FacetOption[];
+    educationLevels: FacetOption[];
 }>();
 
 defineOptions({
@@ -42,6 +51,10 @@ defineOptions({
                 salary_min: '',
                 salary_max: '',
                 currency: '',
+                employment_type: '',
+                work_arrangement: '',
+                experience_level: '',
+                education_level: '',
                 status: 'active',
             }"
             :submit-url="store().url"
@@ -49,6 +62,10 @@ defineOptions({
             :countries="countries"
             :currencies="currencies"
             :statuses="statuses"
+            :employment-types="employmentTypes"
+            :work-arrangements="workArrangements"
+            :experience-levels="experienceLevels"
+            :education-levels="educationLevels"
             submit-label="Post job"
         />
     </div>

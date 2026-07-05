@@ -14,7 +14,12 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { countryLabel } from '@/types/kerjago';
-import type { CountryCode, CurrencyCode, JobStatus } from '@/types/kerjago';
+import type {
+    CountryCode,
+    CurrencyCode,
+    FacetOption,
+    JobStatus,
+} from '@/types/kerjago';
 
 export type JobFormData = {
     title: string;
@@ -25,6 +30,10 @@ export type JobFormData = {
     salary_min: number | '';
     salary_max: number | '';
     currency: string;
+    employment_type: string;
+    work_arrangement: string;
+    experience_level: string;
+    education_level: string;
     status: string;
 };
 
@@ -35,6 +44,10 @@ const props = defineProps<{
     countries: CountryCode[];
     currencies: CurrencyCode[];
     statuses: JobStatus[];
+    employmentTypes: FacetOption[];
+    workArrangements: FacetOption[];
+    experienceLevels: FacetOption[];
+    educationLevels: FacetOption[];
     submitLabel: string;
 }>();
 
@@ -152,6 +165,84 @@ function submit(): void {
                     min="0"
                 />
                 <InputError :message="form.errors.salary_max" />
+            </div>
+        </div>
+
+        <div class="grid gap-6 sm:grid-cols-2">
+            <div class="grid gap-2">
+                <Label>Employment type</Label>
+                <Select v-model="form.employment_type">
+                    <SelectTrigger class="w-full">
+                        <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="option in employmentTypes"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <InputError :message="form.errors.employment_type" />
+            </div>
+
+            <div class="grid gap-2">
+                <Label>Work arrangement</Label>
+                <Select v-model="form.work_arrangement">
+                    <SelectTrigger class="w-full">
+                        <SelectValue placeholder="Select arrangement" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="option in workArrangements"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <InputError :message="form.errors.work_arrangement" />
+            </div>
+
+            <div class="grid gap-2">
+                <Label>Experience level</Label>
+                <Select v-model="form.experience_level">
+                    <SelectTrigger class="w-full">
+                        <SelectValue placeholder="Select level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="option in experienceLevels"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <InputError :message="form.errors.experience_level" />
+            </div>
+
+            <div class="grid gap-2">
+                <Label>Education</Label>
+                <Select v-model="form.education_level">
+                    <SelectTrigger class="w-full">
+                        <SelectValue placeholder="Select education" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="option in educationLevels"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <InputError :message="form.errors.education_level" />
             </div>
         </div>
 

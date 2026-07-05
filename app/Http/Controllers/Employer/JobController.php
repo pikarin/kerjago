@@ -6,7 +6,11 @@ use App\Actions\Jobs\CreateJob;
 use App\Actions\Jobs\UpdateJob;
 use App\Enums\Country;
 use App\Enums\Currency;
+use App\Enums\EducationLevel;
+use App\Enums\EmploymentType;
+use App\Enums\ExperienceLevel;
 use App\Enums\JobStatus;
+use App\Enums\WorkArrangement;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreJobRequest;
 use App\Http\Requests\UpdateJobRequest;
@@ -57,6 +61,10 @@ class JobController extends Controller
             'countries' => Country::cases(),
             'currencies' => Currency::cases(),
             'statuses' => JobStatus::cases(),
+            'employmentTypes' => EmploymentType::options(),
+            'workArrangements' => WorkArrangement::options(),
+            'experienceLevels' => ExperienceLevel::options(),
+            'educationLevels' => EducationLevel::options(),
         ]);
     }
 
@@ -70,7 +78,7 @@ class JobController extends Controller
         /** @var EmployerProfile $profile */
         $profile = $user->employerProfile;
 
-        /** @var array{title: string, description: string, skills: array<int, string>, location_country: string, location_city: string, salary_min: int, salary_max: int, currency: string, status: string} $data */
+        /** @var array{title: string, description: string, skills: array<int, string>, location_country: string, location_city: string, salary_min: int, salary_max: int, currency: string, employment_type: string, work_arrangement: string, experience_level: string, education_level: string, status: string} $data */
         $data = $request->validated();
 
         $createJob->handle($profile, $data);
@@ -98,11 +106,19 @@ class JobController extends Controller
                 'salary_min' => $job->salary_min,
                 'salary_max' => $job->salary_max,
                 'currency' => $job->currency,
+                'employment_type' => $job->employment_type->value ?? '',
+                'work_arrangement' => $job->work_arrangement->value ?? '',
+                'experience_level' => $job->experience_level->value ?? '',
+                'education_level' => $job->education_level->value ?? '',
                 'status' => $job->status,
             ],
             'countries' => Country::cases(),
             'currencies' => Currency::cases(),
             'statuses' => JobStatus::cases(),
+            'employmentTypes' => EmploymentType::options(),
+            'workArrangements' => WorkArrangement::options(),
+            'experienceLevels' => ExperienceLevel::options(),
+            'educationLevels' => EducationLevel::options(),
         ]);
     }
 
@@ -111,7 +127,7 @@ class JobController extends Controller
      */
     public function update(UpdateJobRequest $request, Job $job, UpdateJob $updateJob): RedirectResponse
     {
-        /** @var array{title: string, description: string, skills: array<int, string>, location_country: string, location_city: string, salary_min: int, salary_max: int, currency: string, status: string} $data */
+        /** @var array{title: string, description: string, skills: array<int, string>, location_country: string, location_city: string, salary_min: int, salary_max: int, currency: string, employment_type: string, work_arrangement: string, experience_level: string, education_level: string, status: string} $data */
         $data = $request->validated();
 
         $updateJob->handle($job, $data);

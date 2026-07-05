@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Job;
+
 return [
 
     /*
@@ -181,28 +183,41 @@ return [
         ],
         // 'max_total_results' => env('TYPESENSE_MAX_TOTAL_RESULTS', 1000),
         'model-settings' => [
-            // User::class => [
-            //     'collection-schema' => [
-            //         'fields' => [
-            //             [
-            //                 'name' => 'id',
-            //                 'type' => 'string',
-            //             ],
-            //             [
-            //                 'name' => 'name',
-            //                 'type' => 'string',
-            //             ],
-            //             [
-            //                 'name' => 'created_at',
-            //                 'type' => 'int64',
-            //             ],
-            //         ],
-            //         'default_sorting_field' => 'created_at',
-            //     ],
-            //     'search-parameters' => [
-            //         'query_by' => 'name'
-            //     ],
-            // ],
+            Job::class => [
+                'collection-schema' => [
+                    'fields' => [
+                        ['name' => 'id', 'type' => 'string'],
+                        ['name' => 'title', 'type' => 'string'],
+                        ['name' => 'description', 'type' => 'string'],
+                        ['name' => 'skills', 'type' => 'string[]', 'facet' => true],
+                        ['name' => 'location_country', 'type' => 'string', 'facet' => true],
+                        ['name' => 'location_city', 'type' => 'string'],
+                        ['name' => 'employment_type', 'type' => 'string', 'facet' => true, 'optional' => true],
+                        ['name' => 'work_arrangement', 'type' => 'string', 'facet' => true, 'optional' => true],
+                        ['name' => 'experience_level', 'type' => 'string', 'facet' => true, 'optional' => true],
+                        ['name' => 'education_level', 'type' => 'string', 'facet' => true, 'optional' => true],
+                        ['name' => 'salary_min', 'type' => 'int64'],
+                        ['name' => 'salary_max', 'type' => 'int64'],
+                        ['name' => 'currency', 'type' => 'string', 'facet' => true],
+                        ['name' => 'created_at', 'type' => 'int64'],
+                        [
+                            // Generated server-side by Typesense from the listed
+                            // fields; including "embedding" in query_by turns a
+                            // keyword search into hybrid search with rank fusion.
+                            'name' => 'embedding',
+                            'type' => 'float[]',
+                            'embed' => [
+                                'from' => ['title', 'description', 'skills'],
+                                'model_config' => ['model_name' => 'ts/all-MiniLM-L12-v2'],
+                            ],
+                        ],
+                    ],
+                    'default_sorting_field' => 'created_at',
+                ],
+                'search-parameters' => [
+                    'query_by' => 'title,skills,location_city,description,embedding',
+                ],
+            ],
         ],
         'import_action' => env('TYPESENSE_IMPORT_ACTION', 'upsert'),
     ],

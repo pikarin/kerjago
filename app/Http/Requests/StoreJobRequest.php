@@ -4,7 +4,11 @@ namespace App\Http\Requests;
 
 use App\Enums\Country;
 use App\Enums\Currency;
+use App\Enums\EducationLevel;
+use App\Enums\EmploymentType;
+use App\Enums\ExperienceLevel;
 use App\Enums\JobStatus;
+use App\Enums\WorkArrangement;
 use App\Models\Job;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -37,6 +41,10 @@ class StoreJobRequest extends FormRequest
             'salary_min' => ['required', 'integer', 'min:0'],
             'salary_max' => ['required', 'integer', 'gte:salary_min'],
             'currency' => ['required', Rule::enum(Currency::class)],
+            'employment_type' => ['required', Rule::enum(EmploymentType::class)],
+            'work_arrangement' => ['required', Rule::enum(WorkArrangement::class)],
+            'experience_level' => ['required', Rule::enum(ExperienceLevel::class)],
+            'education_level' => ['required', Rule::enum(EducationLevel::class)],
             'status' => ['required', Rule::enum(JobStatus::class)],
         ];
     }

@@ -2,8 +2,12 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasOptions;
+
 enum Country: string
 {
+    use HasOptions;
+
     case Indonesia = 'ID';
     case Singapore = 'SG';
     case Malaysia = 'MY';

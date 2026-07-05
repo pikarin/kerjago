@@ -7,6 +7,22 @@ export type CountryCode = 'ID' | 'SG' | 'MY' | 'PH' | 'VN' | 'TH';
 
 export type CurrencyCode = 'IDR' | 'SGD' | 'MYR' | 'PHP' | 'VND' | 'THB';
 
+export type EmploymentType =
+    'full_time' | 'part_time' | 'contract' | 'internship' | 'freelance';
+
+export type WorkArrangement = 'onsite' | 'hybrid' | 'remote';
+
+export type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'lead';
+
+export type EducationLevel =
+    'none' | 'high_school' | 'diploma' | 'bachelor' | 'master' | 'doctorate';
+
+export type FacetOption = { value: string; label: string };
+
+export type FacetCount = { value: string; count: number };
+
+export type Facets = Record<string, FacetCount[]>;
+
 export type Paginated<T> = {
     data: T[];
     current_page: number;
@@ -31,6 +47,9 @@ export type JobSummary = {
     salary_min: number;
     salary_max: number;
     currency: CurrencyCode;
+    employment_type: EmploymentType | null;
+    work_arrangement: WorkArrangement | null;
+    experience_level: ExperienceLevel | null;
     skills: string[];
     posted_at: string | null;
 };
