@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Job;
+use App\Models\JobseekerProfile;
 
 return [
 
@@ -216,6 +217,46 @@ return [
                 ],
                 'search-parameters' => [
                     'query_by' => 'title,skills,location_city,description,embedding',
+                ],
+            ],
+            JobseekerProfile::class => [
+                'collection-schema' => [
+                    'fields' => [
+                        ['name' => 'id', 'type' => 'string'],
+                        ['name' => 'full_name', 'type' => 'string'],
+                        ['name' => 'preferred_job_title', 'type' => 'string', 'facet' => true],
+                        ['name' => 'experience_titles', 'type' => 'string[]'],
+                        ['name' => 'skills', 'type' => 'string[]', 'facet' => true],
+                        ['name' => 'preferred_location', 'type' => 'string'],
+                        ['name' => 'location', 'type' => 'string'],
+                        ['name' => 'country', 'type' => 'string', 'facet' => true],
+                        ['name' => 'city', 'type' => 'string', 'facet' => true],
+                        ['name' => 'preferred_country', 'type' => 'string', 'facet' => true, 'optional' => true],
+                        ['name' => 'preferred_city', 'type' => 'string', 'facet' => true, 'optional' => true],
+                        ['name' => 'availability', 'type' => 'string', 'facet' => true, 'optional' => true],
+                        ['name' => 'gender', 'type' => 'string', 'facet' => true, 'optional' => true],
+                        ['name' => 'education_level', 'type' => 'string', 'facet' => true, 'optional' => true],
+                        ['name' => 'languages', 'type' => 'string[]', 'facet' => true, 'optional' => true],
+                        ['name' => 'experience_years', 'type' => 'int32'],
+                        ['name' => 'experience_band', 'type' => 'string', 'facet' => true],
+                        ['name' => 'created_at', 'type' => 'int64'],
+                        [
+                            // Generated server-side by Typesense. The five
+                            // source fields are always present in the document
+                            // (JobseekerProfile::toSearchableArray applies
+                            // fallbacks instead of null-filtering them).
+                            'name' => 'embedding',
+                            'type' => 'float[]',
+                            'embed' => [
+                                'from' => ['preferred_job_title', 'experience_titles', 'skills', 'preferred_location', 'location'],
+                                'model_config' => ['model_name' => 'ts/all-MiniLM-L12-v2'],
+                            ],
+                        ],
+                    ],
+                    'default_sorting_field' => 'created_at',
+                ],
+                'search-parameters' => [
+                    'query_by' => 'preferred_job_title,experience_titles,skills,preferred_location,location,embedding',
                 ],
             ],
         ],

@@ -22,10 +22,10 @@ import { index as jobsIndex } from '@/routes/employer/jobs';
 import { show as talentShow } from '@/routes/employer/talent';
 import { countryLabel } from '@/types/kerjago';
 import type {
+    ApplicantProfile,
     ApplicationStatus,
     JobStatus,
     Paginated,
-    TalentProfile,
 } from '@/types/kerjago';
 
 defineProps<{
@@ -40,7 +40,7 @@ defineProps<{
         cover_note: string | null;
         has_resume: boolean;
         applied_at: string | null;
-        profile: TalentProfile;
+        profile: ApplicantProfile;
     }>;
     statuses: ApplicationStatus[];
 }>();

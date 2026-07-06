@@ -78,7 +78,30 @@ export type JobDetail = {
     };
 };
 
+export type Availability =
+    'immediately' | 'two_weeks' | 'one_month' | 'two_months_plus';
+
+export type Gender = 'male' | 'female' | 'prefer_not_to_say';
+
+export type LanguageCode = 'id' | 'en' | 'ms' | 'zh' | 'th' | 'vi' | 'tl';
+
 export type TalentProfile = {
+    id: string;
+    full_name: string;
+    current_title: string;
+    preferred_job_title: string | null;
+    skills: string[];
+    experience_years: number;
+    country: CountryCode;
+    city: string;
+    preferred_country: CountryCode | null;
+    preferred_city: string | null;
+    availability: Availability | null;
+};
+
+// Applicant cards may show contact details — phone is shared through an
+// application (ADR 0006), unlike talent search where it stays masked.
+export type ApplicantProfile = {
     id: string;
     full_name: string;
     current_title: string;
@@ -86,7 +109,23 @@ export type TalentProfile = {
     experience_years: number;
     country: CountryCode;
     city: string;
-    phone?: string | null;
+    phone: string | null;
+};
+
+export type WorkExperienceItem = {
+    id: string;
+    job_title: string;
+    company_name: string;
+    start_date: string;
+    end_date: string | null;
+    is_current: boolean;
+};
+
+export type TalentDetail = TalentProfile & {
+    languages: LanguageCode[] | null;
+    gender: Gender | null;
+    education_level: EducationLevel | null;
+    work_experiences: WorkExperienceItem[];
 };
 
 export const COUNTRY_LABELS: Record<CountryCode, string> = {
