@@ -67,6 +67,14 @@ class User extends Authenticatable implements PasskeyUser
     }
 
     /**
+     * Internal Kerjago team. Holds neither profile type.
+     */
+    public function isStaff(): bool
+    {
+        return $this->role === UserRole::Staff;
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

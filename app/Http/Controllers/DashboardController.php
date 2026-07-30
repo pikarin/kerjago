@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ApplicationStatus;
+use App\Enums\UserRole;
 use App\Models\Application;
 use App\Models\Job;
 use App\Models\User;
@@ -20,9 +21,18 @@ class DashboardController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        return $user->isEmployer()
-            ? $this->employerDashboard($user)
-            : $this->jobseekerDashboard($user);
+        // Matched on the enum rather than an isEmployer() ternary so a future
+        // role fails loudly instead of silently landing on the jobseeker view.
+        return match ($user->role) {
+            UserRole::Employer => $this->employerDashboard($user),
+            UserRole::Jobseeker => $this->jobseekerDashboard($user),
+            UserRole::Staff => $this->staffDashboard(),
+        };
+    }
+
+    private function staffDashboard(): Response
+    {
+        return Inertia::render('dashboard/Staff');
     }
 
     private function employerDashboard(User $user): Response

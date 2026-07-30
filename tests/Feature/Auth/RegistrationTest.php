@@ -46,4 +46,8 @@ test('registration requires a valid role', function (?string $role) {
 })->with([
     'missing' => null,
     'invalid' => 'admin',
+    // `staff` is a real UserRole case but is not self-service (ADR 0010).
+    // Without the only() constraint on the enum rule, this would register a
+    // fully-privileged internal account.
+    'staff is not self-assignable' => 'staff',
 ]);

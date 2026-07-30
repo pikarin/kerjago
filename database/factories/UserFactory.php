@@ -59,6 +59,16 @@ class UserFactory extends Factory
     }
 
     /**
+     * Indicate that the user is internal Kerjago team.
+     */
+    public function staff(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::Staff,
+        ]);
+    }
+
+    /**
      * Indicate that the model's email address should be unverified.
      */
     public function unverified(): static

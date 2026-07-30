@@ -29,7 +29,7 @@ import { index as talentIndex } from '@/routes/employer/talent';
 import { index as jobsIndex } from '@/routes/jobs';
 import { index as myApplicationsIndex } from '@/routes/jobseeker/applications';
 import { edit as jobseekerProfileEdit } from '@/routes/jobseeker/profile';
-import type { NavItem, User } from '@/types';
+import type { NavItem, User, UserRole } from '@/types';
 
 const page = usePage();
 const user = computed(() => page.props.auth.user as User);
@@ -48,8 +48,20 @@ const jobseekerNavItems: NavItem[] = [
     { title: 'My profile', href: jobseekerProfileEdit(), icon: UserRound },
 ];
 
-const mainNavItems = computed<NavItem[]>(() =>
-    user.value?.role === 'employer' ? employerNavItems : jobseekerNavItems,
+const staffNavItems: NavItem[] = [
+    { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+];
+
+// Keyed by UserRole so adding a role is a type error here rather than a
+// silent fallback to the jobseeker menu.
+const navItemsByRole: Record<UserRole, NavItem[]> = {
+    employer: employerNavItems,
+    jobseeker: jobseekerNavItems,
+    staff: staffNavItems,
+};
+
+const mainNavItems = computed<NavItem[]>(
+    () => navItemsByRole[user.value?.role] ?? jobseekerNavItems,
 );
 </script>
 
