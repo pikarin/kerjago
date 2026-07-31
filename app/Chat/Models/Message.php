@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Laravel\Scout\Searchable;
 
 /**
  * @property string $id
@@ -35,9 +36,49 @@ use Illuminate\Support\Carbon;
 class Message extends Model
 {
     /** @use HasFactory<MessageFactory> */
-    use HasFactory, HasUlids, SoftDeletes;
+    use HasFactory, HasUlids, Searchable, SoftDeletes;
 
     protected $table = 'chat_messages';
+
+    /**
+     * A soft-deleted message must stop being findable while staying in the
+     * table for history.
+     */
+    public function shouldBeSearchable(): bool
+    {
+        return $this->deleted_at === null;
+    }
+
+    /**
+     * participant_ids is indexed so an engine can pre-filter by membership at
+     * scale. It is NOT what enforces access: SearchMessages constrains the
+     * hydration query in SQL, so a misconfigured index cannot leak a
+     * conversation.
+     *
+     * @return array<string, mixed>
+     */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'conversation_id' => $this->conversation_id,
+            'participant_ids' => $this->conversation->participantIds(),
+            'body' => $this->body ?? '',
+            'created_at' => $this->created_at?->getTimestamp() ?? 0,
+        ];
+    }
+
+    /**
+     * Eager-load what toSearchableArray needs, so importing does not issue a
+     * query per message for its participants.
+     *
+     * @param  Collection<int, self>  $models
+     * @return Collection<int, self>
+     */
+    public function makeSearchableUsing(Collection $models): Collection
+    {
+        return $models->load('conversation.participants');
+    }
 
     /**
      * @var array<string, mixed>

@@ -4,17 +4,24 @@ import { MessagesSquare } from '@lucide/vue';
 import { computed } from 'vue';
 import ConversationList from '@/components/chat/ConversationList.vue';
 import ConversationPane from '@/components/chat/ConversationPane.vue';
+import MessageSearch from '@/components/chat/MessageSearch.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import { dashboard } from '@/routes';
 import { index as chatIndex } from '@/routes/chat';
 import type { User } from '@/types';
-import type { ChatConversation, ChatMessage } from '@/types/chat';
+import type {
+    ChatConversation,
+    ChatMessage,
+    ChatSearchResults,
+} from '@/types/chat';
 import type { Paginated } from '@/types/kerjago';
 
 const props = defineProps<{
     conversations: Paginated<ChatConversation>;
     conversation: ChatConversation | null;
     messages: Paginated<ChatMessage> | null;
+    searchQuery: string;
+    searchResults: ChatSearchResults | null;
 }>();
 
 defineOptions({
@@ -39,13 +46,14 @@ const initialMessages = computed<ChatMessage[]>(() =>
     <Head title="Chat" />
 
     <div class="flex h-full flex-1 gap-4 overflow-hidden p-4">
-        <aside class="flex w-72 shrink-0 flex-col border-r pr-4">
-            <h1 class="mb-2 px-3 text-sm font-medium text-muted-foreground">
-                Conversations
-            </h1>
+        <aside class="flex w-72 shrink-0 flex-col gap-3 border-r pr-4">
+            <MessageSearch :query="searchQuery" :results="searchResults" />
 
             <div class="flex-1 overflow-y-auto">
+                <!-- Search replaces the list rather than sitting beside it, so
+                     there is never a question of which pane a result is in. -->
                 <ConversationList
+                    v-if="!searchResults"
                     :conversations="conversations.data"
                     :active-id="conversation?.id ?? null"
                 />

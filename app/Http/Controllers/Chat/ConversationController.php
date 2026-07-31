@@ -6,6 +6,7 @@ use App\Actions\Chat\ResolveChatDirectory;
 use App\Chat\Actions\GetConversationMessages;
 use App\Chat\Actions\ListConversations;
 use App\Chat\Actions\MarkConversationRead;
+use App\Chat\Actions\SearchMessages;
 use App\Chat\Models\Conversation;
 use App\Chat\Models\Message;
 use App\Http\Controllers\Controller;
@@ -28,11 +29,13 @@ class ConversationController extends Controller
         Request $request,
         ListConversations $listConversations,
         ResolveChatDirectory $resolveChatDirectory,
+        SearchMessages $searchMessages,
     ): Response {
         /** @var User $user */
         $user = $request->user();
 
         $conversations = $listConversations->handle($user->id);
+        $query = $request->string('q')->trim()->toString();
 
         return Inertia::render('chat/Index', [
             'conversations' => $this->propsFromDirectory(
@@ -43,7 +46,34 @@ class ConversationController extends Controller
             ),
             'conversation' => null,
             'messages' => null,
+            'searchQuery' => $query,
+            'searchResults' => $query === ''
+                ? null
+                : $this->searchProps($request, $searchMessages, $query, $user->id),
         ]);
+    }
+
+    /**
+     * Search results are a bounded list rather than a paginator, and the cap is
+     * reported so a truncated list never reads as a complete one.
+     *
+     * @return array{data: list<array<string, mixed>>, truncated: bool}
+     */
+    private function searchProps(
+        Request $request,
+        SearchMessages $searchMessages,
+        string $query,
+        string $viewerId,
+    ): array {
+        $limit = 30;
+        $matches = $searchMessages->handle($viewerId, $query, $limit);
+
+        return [
+            'data' => array_values($matches
+                ->map(fn (Message $message) => (new MessageResource($message))->toArray($request))
+                ->all()),
+            'truncated' => $matches->count() >= $limit,
+        ];
     }
 
     /**
@@ -84,6 +114,8 @@ class ConversationController extends Controller
             'messages' => $messages->through(
                 fn (Message $message) => (new MessageResource($message))->toArray($request),
             ),
+            'searchQuery' => '',
+            'searchResults' => null,
         ]);
     }
 

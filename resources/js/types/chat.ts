@@ -40,6 +40,15 @@ export type ChatReaction = {
  * conversation's participant list, which is resolved once per request — so this
  * shape is identical whether it arrived over HTTP or the socket.
  */
+/**
+ * A bounded list, not a paginator. `truncated` says the cap was hit, so a
+ * partial list is never presented as a complete one.
+ */
+export type ChatSearchResults = {
+    data: ChatMessage[];
+    truncated: boolean;
+};
+
 export type ChatMessage = {
     id: string;
     conversation_id: string;
