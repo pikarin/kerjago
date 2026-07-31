@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Jobseeker;
 use App\Actions\Applications\ApplyToJob;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreApplicationRequest;
+use App\Jobs\OpenApplicationConversation;
 use App\Models\Application;
 use App\Models\Job;
 use App\Models\JobseekerProfile;
@@ -57,7 +58,11 @@ class ApplicationController extends Controller
         /** @var JobseekerProfile $profile */
         $profile = $user->jobseekerProfile;
 
-        $applyToJob->handle($profile, $job, $request->coverNote());
+        $application = $applyToJob->handle($profile, $job, $request->coverNote());
+
+        // Queued, not called inline: applying must not be able to fail because
+        // chat did. The job is idempotent, so a retry cannot duplicate.
+        OpenApplicationConversation::dispatch($application)->afterCommit();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Application submitted.')]);
 

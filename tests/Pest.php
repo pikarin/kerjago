@@ -31,16 +31,22 @@ pest()->extend(TestCase::class)
 | authorize every channel, making those tests pass vacuously.
 |
 | The cost is that dispatching a ShouldBroadcast event tries to POST to a Reverb
-| server that is not running. These two events are faked so sending a message
-| does not require one. Channel authorization is unaffected — /broadcasting/auth
-| does not go through the event dispatcher — and broadcastOn()/broadcastWith()
-| are asserted directly against freshly constructed events.
+| server that is not running. These two events are faked so nothing that happens
+| to write a message needs one.
+|
+| Faked across the whole Feature suite, not just Feature/Chat: a status change or
+| a job application now queues chat work, and with the sync queue that runs
+| inline, so tests with no interest in chat would otherwise fail on a cURL error.
+|
+| Channel authorization is unaffected, because /broadcasting/auth does not go
+| through the event dispatcher, and broadcastOn()/broadcastWith() are asserted
+| directly against freshly constructed events.
 |
 */
 
 pest()->beforeEach(function () {
     Event::fake([MessageSent::class, MessageRead::class]);
-})->in('Feature/Chat');
+})->in('Feature');
 
 /*
 |--------------------------------------------------------------------------
