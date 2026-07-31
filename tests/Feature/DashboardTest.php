@@ -20,3 +20,10 @@ test('employers see the employer dashboard', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('dashboard/Employer'));
 });
+
+test('staff see the staff dashboard', function () {
+    $this->actingAs(User::factory()->staff()->create())
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('dashboard/Staff'));
+});

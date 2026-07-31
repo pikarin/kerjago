@@ -1,5 +1,6 @@
 <?php
 
+use App\Chat\Models\Message;
 use App\Models\Job;
 use App\Models\JobseekerProfile;
 
@@ -184,6 +185,29 @@ return [
         ],
         // 'max_total_results' => env('TYPESENSE_MAX_TOTAL_RESULTS', 1000),
         'model-settings' => [
+            Message::class => [
+                'collection-schema' => [
+                    'fields' => [
+                        ['name' => 'id', 'type' => 'string'],
+                        ['name' => 'conversation_id', 'type' => 'string', 'facet' => true],
+                        // Indexed so an engine can pre-filter by membership at
+                        // scale. Access is enforced in SQL by
+                        // App\Chat\Actions\SearchMessages, so this field is an
+                        // optimisation and never the guarantee.
+                        ['name' => 'participant_ids', 'type' => 'string[]', 'facet' => true],
+                        ['name' => 'body', 'type' => 'string'],
+                        ['name' => 'created_at', 'type' => 'int64'],
+                    ],
+                    'default_sorting_field' => 'created_at',
+                ],
+                'search-parameters' => [
+                    // Keyword only, no embedding: message bodies are
+                    // conversational rather than descriptive, and semantic
+                    // matching over them would surface loose paraphrases where
+                    // people expect to find the words they remember typing.
+                    'query_by' => 'body',
+                ],
+            ],
             Job::class => [
                 'collection-schema' => [
                     'fields' => [

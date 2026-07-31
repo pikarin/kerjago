@@ -24,7 +24,10 @@ class CreateNewUser implements CreatesNewUsers
         Validator::make($input, [
             ...$this->profileRules(),
             'password' => $this->passwordRules(),
-            'role' => ['required', Rule::enum(UserRole::class)],
+            // Only self-service roles are accepted here. Without the `only()`
+            // constraint, registration would accept `role=staff` and let
+            // anyone provision themselves as internal team.
+            'role' => ['required', Rule::enum(UserRole::class)->only(UserRole::selfServiceCases())],
         ])->validate();
 
         return User::create([

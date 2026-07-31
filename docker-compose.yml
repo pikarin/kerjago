@@ -26,6 +26,28 @@ services:
         networks:
             - kerjago
 
+    # WebSocket server for chat. Port IS published, unlike postgres/redis:
+    # the browser connects to it directly, so it must be reachable from the
+    # host regardless of whether the dev runs the app in Docker or Herd.
+    reverb:
+        build:
+            context: .
+            target: local
+        command: php artisan reverb:start --host=0.0.0.0 --port=8080
+        ports:
+            - '8080:8080'
+        volumes:
+            - .:/app
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_started
+        networks:
+            - kerjago
+
     # No host port mapping on purpose: most macOS setups (Herd, Homebrew)
     # already run Redis on 6379. Host-based devs use their local Redis;
     # containers reach this one as `redis`.

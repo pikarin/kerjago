@@ -5,7 +5,7 @@ APP = $(COMPOSE) exec app
 # mounted .env points at (Herd/DBngin users point .env at their host DB).
 TEST_ENV = -e DB_HOST=postgres -e DB_PORT=5432 -e DB_USERNAME=root -e DB_PASSWORD=secret
 
-.PHONY: up down build setup dev tinker test queue bash logs
+.PHONY: up down build setup dev tinker test queue reverb bash logs
 
 up:
 	$(COMPOSE) up -d
@@ -40,6 +40,11 @@ test:
 
 queue:
 	$(APP) php artisan queue:listen
+
+## WebSocket server for chat. Host-based devs can run this directly instead:
+## `php artisan reverb:start`.
+reverb:
+	$(APP) php artisan reverb:start --host=0.0.0.0 --port=8080
 
 bash:
 	$(APP) /bin/bash

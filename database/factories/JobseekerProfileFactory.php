@@ -56,12 +56,35 @@ class JobseekerProfileFactory extends Factory
     ];
 
     /**
+     * A country paired with one of its own cities.
+     *
+     * Drawn with array_rand rather than fake()->randomElement() because the
+     * latter returns mixed, which cannot be used as an array key to look the
+     * cities back up.
+     *
+     * @return array{country: string, city: string}
+     */
+    private static function randomLocation(): array
+    {
+        $country = array_rand(self::CITIES);
+        $cities = self::CITIES[$country];
+
+        return [
+            'country' => $country,
+            'city' => $cities[array_rand($cities)],
+        ];
+    }
+
+    /**
      * Define the model's default state.
      *
      * @return array<string, mixed>
      */
     public function definition(): array
     {
+        $location = self::randomLocation();
+        $preferred = self::randomLocation();
+
         return [
             'user_id' => User::factory()->state(['role' => UserRole::Jobseeker]),
             'full_name' => fake()->name(),
@@ -72,10 +95,10 @@ class JobseekerProfileFactory extends Factory
                 fake()->numberBetween(2, 5)
             ),
             'experience_years' => fake()->numberBetween(0, 20),
-            'country' => $country = fake()->randomElement(array_keys(self::CITIES)),
-            'city' => fake()->randomElement(self::CITIES[$country]),
-            'preferred_country' => $preferredCountry = fake()->randomElement(array_keys(self::CITIES)),
-            'preferred_city' => fake()->randomElement(self::CITIES[$preferredCountry]),
+            'country' => $location['country'],
+            'city' => $location['city'],
+            'preferred_country' => $preferred['country'],
+            'preferred_city' => $preferred['city'],
             'availability' => fake()->randomElement(Availability::cases()),
             'languages' => fake()->randomElements(
                 array_column(Language::cases(), 'value'),

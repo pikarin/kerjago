@@ -14,6 +14,8 @@ class EnsureProfileIsComplete
      * can't post or manage jobs until their profile exists. Navigation is
      * never blocked — the user is redirected to the profile form instead.
      *
+     * Staff hold neither profile type and pass straight through.
+     *
      * @param  Closure(Request): Response  $next
      */
     public function handle(Request $request, Closure $next): Response
