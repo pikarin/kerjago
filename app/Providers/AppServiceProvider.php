@@ -5,12 +5,15 @@ namespace App\Providers;
 use App\Chat\Contracts\ChatAuthorizer;
 use App\Chat\Contracts\ContextResolver;
 use App\Chat\Contracts\ParticipantResolver;
+use App\Chat\Models\Conversation;
+use App\Policies\ConversationPolicy;
 use App\Support\Chat\DomainContextResolver;
 use App\Support\Chat\EloquentParticipantResolver;
 use App\Support\Chat\PolicyChatAuthorizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -45,6 +48,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        // Policy auto-discovery maps App\Models\{Model} to
+        // App\Policies\{Model}Policy. Conversation lives in App\Chat\Models, so
+        // it has to be registered by hand or every Gate check silently denies.
+        Gate::policy(Conversation::class, ConversationPolicy::class);
     }
 
     /**

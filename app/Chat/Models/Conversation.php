@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $last_message_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read int|null $unread_count Present only when loaded via a withCount, as ListConversations does.
  * @property-read Collection<int, Participant> $participants
  * @property-read Collection<int, Message> $messages
  */
