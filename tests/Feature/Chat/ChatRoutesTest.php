@@ -122,6 +122,77 @@ test('a message body is required and bounded', function () {
         ->assertSessionHasErrors('body');
 });
 
+test('a participant can acknowledge a read explicitly', function () {
+    [$conversation, $user] = conversationForUser();
+    Message::factory()->for($conversation)->create();
+
+    $this->actingAs($user)
+        ->post(route('chat.read.store', $conversation))
+        ->assertRedirect();
+
+    expect($conversation->participants()->where('participant_id', $user->id)->value('last_read_at'))
+        ->not->toBeNull();
+});
+
+test('a non-participant cannot acknowledge a read', function () {
+    [$conversation] = conversationForUser();
+
+    $this->actingAs(User::factory()->create())
+        ->post(route('chat.read.store', $conversation))
+        ->assertForbidden();
+});
+
+/**
+ * parent_message_id carries a real self-referential foreign key, so an id that
+ * merely looks like a ULID would pass a `ulid` rule and then fail the
+ * constraint as a 500. Scoping also blocks a thread parent from another
+ * conversation.
+ */
+test('a thread parent must exist inside the same conversation', function () {
+    [$mine, $user] = conversationForUser();
+    [$theirs] = conversationForUser();
+
+    $foreign = Message::factory()->for($theirs)->create();
+
+    $this->actingAs($user)
+        ->post(route('chat.messages.store', $mine), [
+            'body' => 'Replying across a boundary',
+            'parent_message_id' => $foreign->id,
+        ])
+        ->assertSessionHasErrors('parent_message_id');
+
+    $this->actingAs($user)
+        ->post(route('chat.messages.store', $mine), [
+            'body' => 'Replying to nothing',
+            'parent_message_id' => (string) Str::ulid(),
+        ])
+        ->assertSessionHasErrors('parent_message_id');
+
+    expect(Message::query()->where('conversation_id', $mine->id)->count())->toBe(0);
+});
+
+test('a thread parent inside the same conversation is accepted', function () {
+    [$conversation, $user] = conversationForUser();
+    $parent = Message::factory()->for($conversation)->create();
+
+    $this->actingAs($user)
+        ->post(route('chat.messages.store', $conversation), [
+            'body' => 'Threaded reply',
+            'parent_message_id' => $parent->id,
+        ])
+        ->assertRedirect();
+
+    expect(Message::query()->where('parent_message_id', $parent->id)->count())->toBe(1);
+});
+
+test('the inbox search query is bounded', function () {
+    [, $user] = conversationForUser();
+
+    $this->actingAs($user)
+        ->get(route('chat.index', ['q' => str_repeat('a', 256)]))
+        ->assertSessionHasErrors('q');
+});
+
 test('opening a conversation marks it read', function () {
     [$conversation, $user] = conversationForUser();
     Message::factory()->for($conversation)->create();
@@ -153,6 +224,23 @@ test('a reaction cannot target a message from another conversation', function ()
         ->assertSessionHasErrors('message_id');
 
     expect($foreignMessage->reactions()->count())->toBe(0);
+});
+
+/**
+ * The exists rule excludes soft-deleted rows, so this is a validation error
+ * rather than a 404 from the controller's findOrFail.
+ */
+test('a reaction cannot target a deleted message', function () {
+    [$conversation, $user] = conversationForUser();
+    $message = Message::factory()->for($conversation)->create();
+    $message->delete();
+
+    $this->actingAs($user)
+        ->post(route('chat.reactions.store', $conversation), [
+            'message_id' => $message->id,
+            'emoji' => '👍',
+        ])
+        ->assertSessionHasErrors('message_id');
 });
 
 test('a participant can react to a message in their conversation', function () {

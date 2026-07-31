@@ -39,7 +39,10 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['context_type', 'context_id']);
-            $table->index('last_message_at');
+
+            // Compound, matching the inbox's `order by last_message_at desc, id
+            // desc`. A single-column index leaves the tiebreak to a sort step.
+            $table->index(['last_message_at', 'id']);
         });
     }
 

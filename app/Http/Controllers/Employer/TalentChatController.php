@@ -8,6 +8,7 @@ use App\Models\JobseekerProfile;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class TalentChatController extends Controller
 {
@@ -22,6 +23,12 @@ class TalentChatController extends Controller
         JobseekerProfile $jobseekerProfile,
         StartColdOutreach $startColdOutreach,
     ): RedirectResponse {
+        // The same profile-visibility gate the adjacent talent.show endpoint
+        // applies. Not a consent check — cold outreach is deliberately ungated.
+        // Without this, a profile that becomes unviewable for any other reason
+        // would 403 on read while still accepting a new conversation.
+        Gate::authorize('view', $jobseekerProfile);
+
         /** @var User $user */
         $user = $request->user();
 

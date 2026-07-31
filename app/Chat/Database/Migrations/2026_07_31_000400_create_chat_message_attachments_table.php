@@ -24,6 +24,13 @@ return new class extends Migration
             $table->string('mime_type');
             $table->unsignedBigInteger('size_bytes');
             $table->timestamps();
+
+            // foreignUlid()->constrained() does not create a supporting index on
+            // Postgres. Without it, loading a message's attachments and every
+            // ON DELETE CASCADE from chat_messages sequentially scan this table.
+            // The other chat tables escape this only because their foreign key
+            // is the leading column of a composite index.
+            $table->index('message_id');
         });
     }
 

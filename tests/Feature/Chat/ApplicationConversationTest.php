@@ -93,8 +93,8 @@ test('an application survives chat failing outright', function () {
         ->toThrow(RuntimeException::class);
 
     // The application is untouched, and no half-built conversation was left.
-    expect(Application::query()->whereKey($application->id)->exists())->toBeTrue()
-        ->and(Conversation::query()->count())->toBe(0);
+    $this->assertModelExists($application);
+    expect(Conversation::query()->count())->toBe(0);
 });
 
 test('changing an applicant status posts a system message into the conversation', function () {
@@ -113,6 +113,49 @@ test('changing an applicant status posts a system message into the conversation'
     expect($message->type)->toBe(MessageType::System)
         ->and($message->participant_id)->toBeNull()
         ->and($message->body)->toContain('shortlisted');
+});
+
+/**
+ * Posting a system message is an unconditional insert, so the job needs a guard
+ * to be retry-safe. The same guard fixes a live bug: an employer re-selecting
+ * the status an application is already in used to post a second identical
+ * message.
+ */
+test('re-announcing the same status does not duplicate the system message', function () {
+    [$application] = applicationWithBothSides();
+
+    $announce = fn () => app(AnnounceApplicationStatusChange::class, [
+        'application' => $application,
+        'status' => ApplicationStatus::Shortlisted,
+    ])->handle(
+        app(EnsureApplicationConversation::class),
+        app(PostSystemMessage::class),
+    );
+
+    $announce();
+    $announce();
+
+    expect(Message::query()->count())->toBe(1);
+});
+
+test('a genuine status transition still posts after an identical earlier one', function () {
+    [$application] = applicationWithBothSides();
+
+    $announce = fn (ApplicationStatus $status) => app(AnnounceApplicationStatusChange::class, [
+        'application' => $application,
+        'status' => $status,
+    ])->handle(
+        app(EnsureApplicationConversation::class),
+        app(PostSystemMessage::class),
+    );
+
+    $announce(ApplicationStatus::Shortlisted);
+    $announce(ApplicationStatus::Rejected);
+    // Shortlisted again is a real transition, because it is no longer the
+    // most recent announcement.
+    $announce(ApplicationStatus::Shortlisted);
+
+    expect(Message::query()->count())->toBe(3);
 });
 
 test('a status change on an application with no conversation creates one first', function () {

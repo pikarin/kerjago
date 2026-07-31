@@ -21,7 +21,7 @@ class GetConversationMessages
     public function handle(Conversation $conversation, int $perPage = 30): LengthAwarePaginator
     {
         return $conversation->messages()
-            ->with('reactions')
+            ->with('reactions:id,message_id,participant_id,emoji')
             ->orderByDesc('id')
             ->paginate($perPage);
     }

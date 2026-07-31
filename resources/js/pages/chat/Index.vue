@@ -40,6 +40,18 @@ const viewer = computed(() => page.props.auth.user as User);
 const initialMessages = computed<ChatMessage[]>(() =>
     props.messages ? [...props.messages.data].reverse() : [],
 );
+
+/**
+ * The viewer's *resolved* display name, not auth.user.name — an employer is
+ * shown as their company everywhere else in chat, so a typing indicator must
+ * not reveal the personal account name behind it.
+ */
+const viewerName = computed<string>(
+    () =>
+        props.conversation?.participants.find(
+            (participant) => participant.is_viewer,
+        )?.name ?? '',
+);
 </script>
 
 <template>
@@ -79,7 +91,7 @@ const initialMessages = computed<ChatMessage[]>(() =>
             :conversation="conversation"
             :initial-messages="initialMessages"
             :viewer-id="viewer.id"
-            :viewer-name="viewer.name"
+            :viewer-name="viewerName"
         />
     </div>
 </template>

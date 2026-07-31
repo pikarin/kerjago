@@ -60,10 +60,21 @@ class Conversation extends Model
      */
     public function hasParticipant(string $participantId): bool
     {
-        return $this->participants
-            ->firstWhere(fn (Participant $participant) => $participant->participant_id === $participantId
-                && $participant->left_at === null,
-            ) !== null;
+        if ($this->relationLoaded('participants')) {
+            return $this->participants->contains(
+                fn (Participant $participant) => $participant->participant_id === $participantId
+                    && $participant->left_at === null,
+            );
+        }
+
+        // A caller that has not eager-loaded gets a bounded EXISTS rather than a
+        // lazy load that hydrates every participant row. Route-bound models
+        // arrive unloaded, and this method is what the policy and the broadcast
+        // channel both authorize on.
+        return $this->participants()
+            ->where('participant_id', $participantId)
+            ->whereNull('left_at')
+            ->exists();
     }
 
     /**
@@ -71,6 +82,8 @@ class Conversation extends Model
      */
     public function participantIds(): array
     {
+        $this->loadMissing('participants');
+
         return array_values(
             $this->participants
                 ->map(fn (Participant $participant): string => $participant->participant_id)

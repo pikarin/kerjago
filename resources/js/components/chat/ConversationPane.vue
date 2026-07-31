@@ -5,7 +5,7 @@ import MessageComposer from '@/components/chat/MessageComposer.vue';
 import MessageList from '@/components/chat/MessageList.vue';
 import TypingIndicator from '@/components/chat/TypingIndicator.vue';
 import { useConversation } from '@/composables/useConversation';
-import { read as markRead } from '@/routes/chat';
+import { store as markRead } from '@/routes/chat/read';
 import type { ChatConversation, ChatMessage } from '@/types/chat';
 
 const props = defineProps<{

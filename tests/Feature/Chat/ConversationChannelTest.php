@@ -33,6 +33,25 @@ test('a member may subscribe to the conversation channel', function () {
     subscribeTo($conversation)->assertOk();
 });
 
+/**
+ * An employer is shown as their company everywhere in chat. The presence
+ * payload must not carry the personal account name behind that, and nothing on
+ * the client reads it.
+ */
+test('the presence payload does not leak the account name', function () {
+    $user = User::factory()->create(['name' => 'Personal Account Name']);
+    $conversation = Conversation::factory()
+        ->has(Participant::factory()->for_($user->id), 'participants')
+        ->create();
+
+    $response = $this->actingAs($user)->postJson('/broadcasting/auth', [
+        'channel_name' => 'presence-chat.conversations.'.$conversation->id,
+        'socket_id' => '1234.5678',
+    ])->assertOk();
+
+    expect($response->getContent())->not->toContain('Personal Account Name');
+});
+
 test('a non-member may not subscribe to the conversation channel', function () {
     $stranger = User::factory()->create();
     $conversation = Conversation::factory()
@@ -94,6 +113,27 @@ test('the inbox orders by most recent activity', function () {
     $ids = collect(app(ListConversations::class)->handle($me)->items())->pluck('id')->all();
 
     expect($ids)->toBe([$newer->id, $older->id]);
+});
+
+/**
+ * Postgres orders DESC as NULLS FIRST. Cold outreach and internal threads start
+ * with last_message_at null, so without an explicit NULLS LAST a conversation
+ * nobody has written in pinned above every live one.
+ */
+test('a conversation with no activity sorts below one with activity', function () {
+    $me = (string) Str::ulid();
+
+    $silent = Conversation::factory()
+        ->has(Participant::factory()->for_($me), 'participants')
+        ->create(['last_message_at' => null]);
+
+    $active = Conversation::factory()
+        ->has(Participant::factory()->for_($me), 'participants')
+        ->create(['last_message_at' => now()->subWeek()]);
+
+    $ids = collect(app(ListConversations::class)->handle($me)->items())->pluck('id')->all();
+
+    expect($ids)->toBe([$active->id, $silent->id]);
 });
 
 /**

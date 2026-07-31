@@ -28,7 +28,12 @@ class EloquentParticipantResolver implements ParticipantResolver
 
         $resolved = [];
 
+        // Narrowed deliberately. A bare select on users pulls password,
+        // remember_token and the encrypted two-factor columns into memory for
+        // every participant on every chat page load; displayName needs only
+        // these three. users.id is retained so the hasOne profiles still match.
         $users = User::query()
+            ->select(['id', 'name', 'role'])
             ->whereIn('id', $ids)
             ->with([
                 'jobseekerProfile:id,user_id,full_name',
@@ -58,9 +63,6 @@ class EloquentParticipantResolver implements ParticipantResolver
      */
     private function displayName(User $user): string
     {
-        // `->` rather than `?->`: the null coalesce uses isset semantics, so it
-        // short-circuits a null relation without warning. The nullsafe operator
-        // would be redundant here.
         return match ($user->role) {
             UserRole::Employer => $user->employerProfile->company_name ?? $user->name,
             UserRole::Jobseeker => $user->jobseekerProfile->full_name ?? $user->name,

@@ -3,7 +3,7 @@
 namespace App\Chat\Actions;
 
 use App\Chat\Models\Message;
-use Illuminate\Database\Eloquent\Builder;
+use App\Chat\Models\Participant;
 use Illuminate\Database\Eloquent\Collection;
 
 class SearchMessages
@@ -28,13 +28,16 @@ class SearchMessages
         $candidateIds = Message::search($query)->take($limit)->keys()->all();
 
         return Message::query()
-            ->with('conversation.participants')
+            ->with('reactions:id,message_id,participant_id,emoji')
             ->whereIn('id', $candidateIds)
-            ->whereHas(
-                'conversation.participants',
-                fn (Builder $participants) => $participants
-                    ->where('participant_id', $participantId)
-                    ->whereNull('left_at'),
+            // A flat IN (subquery) on chat_participants rather than a nested
+            // whereHas through chat_conversations: chat_messages.conversation_id
+            // already matches chat_participants directly, and this shape is
+            // driven by the (participant_id, left_at) index.
+            ->whereIn('conversation_id', Participant::query()
+                ->select('conversation_id')
+                ->where('participant_id', $participantId)
+                ->whereNull('left_at'),
             )
             ->orderByDesc('id')
             ->get();

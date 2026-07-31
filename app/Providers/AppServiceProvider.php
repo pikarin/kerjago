@@ -11,6 +11,7 @@ use App\Support\Chat\DomainContextResolver;
 use App\Support\Chat\EloquentParticipantResolver;
 use App\Support\Chat\PolicyChatAuthorizer;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -65,6 +66,11 @@ class AppServiceProvider extends ServiceProvider
         DB::prohibitDestructiveCommands(
             app()->isProduction(),
         );
+
+        // Surfaces accidental lazy loads outside production. Note it does not
+        // catch every case: Eloquent only arms the per-instance flag when a
+        // query hydrates more than one row, so a route-bound model is exempt.
+        Model::preventLazyLoading(! app()->isProduction());
 
         Password::defaults(fn (): ?Password => app()->isProduction()
             ? Password::min(12)

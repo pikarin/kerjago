@@ -35,9 +35,7 @@ class ConversationResource extends JsonResource
             'id' => $conversation->id,
             'kind' => $conversation->kind,
 
-            // Null when unbound (cold outreach), and flagged unavailable when
-            // the host record is gone. Chat holds no foreign key, so a deleted
-            // job is a rendering state rather than an error.
+            // Null when unbound, as cold outreach is.
             'context' => $context === null ? null : [
                 'type' => $context->type,
                 'label' => $context->label,

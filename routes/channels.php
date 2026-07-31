@@ -34,12 +34,19 @@ Broadcast::channel('App.Models.User.{id}', function (User $user, string $id): bo
  * from drifting apart, which is the usual way a chat app ends up authorizing
  * one but not the other.
  *
- * @return array{id: string, name: string}|null
+ * The payload carries the id and nothing else. It must NOT include $user->name:
+ * that is the personal account name, whereas an employer is shown throughout
+ * chat as their company (see EloquentParticipantResolver::displayName). Sending
+ * it here would hand every other participant an identity the rest of the
+ * feature deliberately does not show. The client resolves names from the
+ * conversation's participant list instead.
+ *
+ * @return array{id: string}|null
  */
 Broadcast::channel('chat.conversations.{conversation}', function (User $user, Conversation $conversation): ?array {
     if (! app(ChatAuthorizer::class)->canAccess($user->id, $conversation)) {
         return null;
     }
 
-    return ['id' => $user->id, 'name' => $user->name];
+    return ['id' => $user->id];
 });

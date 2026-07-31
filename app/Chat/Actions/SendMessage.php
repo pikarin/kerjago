@@ -36,6 +36,11 @@ class SendMessage
                 'parent_message_id' => $parentMessageId,
             ]);
 
+            // create() sets only the foreign key, so Scout's searchable payload
+            // would re-fetch the conversation and its participants on the write
+            // path. Both are already in memory.
+            $message->setRelation('conversation', $conversation);
+
             $conversation->forceFill(['last_message_at' => $message->created_at])->save();
 
             return $message;

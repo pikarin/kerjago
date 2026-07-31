@@ -33,9 +33,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // role-scoped groups below.
     Route::get('chat', [ConversationController::class, 'index'])->name('chat.index');
     Route::get('chat/{conversation}', [ConversationController::class, 'show'])->name('chat.show');
-    Route::post('chat/{conversation}/messages', [MessageController::class, 'store'])->name('chat.messages.store');
-    Route::post('chat/{conversation}/read', [MarkReadController::class, 'store'])->name('chat.read');
-    Route::post('chat/{conversation}/reactions', [ReactionController::class, 'store'])->name('chat.reactions.store');
+
+    // Ceilings, not quotas — set well above real usage. Every chat write
+    // broadcasts, and the client posts a read acknowledgement per received
+    // message per open tab, so these paths amplify rather than merely repeat.
+    Route::post('chat/{conversation}/messages', [MessageController::class, 'store'])
+        ->middleware('throttle:60,1')
+        ->name('chat.messages.store');
+    Route::post('chat/{conversation}/read', [MarkReadController::class, 'store'])
+        ->middleware('throttle:120,1')
+        ->name('chat.read.store');
+    Route::post('chat/{conversation}/reactions', [ReactionController::class, 'store'])
+        ->middleware('throttle:60,1')
+        ->name('chat.reactions.store');
 
     Route::middleware('role:jobseeker')->name('jobseeker.')->group(function () {
         Route::get('profile', [JobseekerProfileController::class, 'edit'])->name('profile.edit');
@@ -64,7 +74,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('talent', [TalentController::class, 'index'])->name('talent.index');
             Route::get('talent/{jobseekerProfile}', [TalentController::class, 'show'])->name('talent.show');
 
+            // A volume ceiling only. Cold outreach is deliberately ungated as to
+            // WHO may be contacted (ADR 0008); this bounds how fast.
             Route::post('talent/{jobseekerProfile}/chat', [TalentChatController::class, 'store'])
+                ->middleware('throttle:20,1')
                 ->name('talent.chat');
         });
     });

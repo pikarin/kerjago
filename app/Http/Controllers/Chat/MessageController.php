@@ -8,17 +8,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Chat\SendMessageRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Gate;
 
 class MessageController extends Controller
 {
+    /**
+     * Authorization runs in SendMessageRequest, before its scoped validation
+     * rules touch the database.
+     */
     public function store(
         SendMessageRequest $request,
         Conversation $conversation,
         SendMessage $sendMessage,
     ): RedirectResponse {
-        Gate::authorize('sendMessage', $conversation);
-
         /** @var User $user */
         $user = $request->user();
 

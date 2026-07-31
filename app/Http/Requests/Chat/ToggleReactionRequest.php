@@ -2,21 +2,11 @@
 
 namespace App\Http\Requests\Chat;
 
-use App\Chat\Models\Conversation;
-use Illuminate\Foundation\Http\FormRequest;
+use App\Chat\Models\Message;
 use Illuminate\Validation\Rule;
 
-class ToggleReactionRequest extends FormRequest
+class ToggleReactionRequest extends ChatConversationRequest
 {
-    /**
-     * Access to the conversation is checked by ConversationPolicy in the
-     * controller, where the resolved model is available.
-     */
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /**
      * @return array<string, mixed>
      */
@@ -25,11 +15,13 @@ class ToggleReactionRequest extends FormRequest
         return [
             // Scoped to this conversation, so a genuine message id belonging to
             // a conversation the caller cannot see is rejected rather than
-            // reacted to.
+            // reacted to. Soft-deleted rows are excluded, otherwise a deleted
+            // message passes validation and then 404s in the controller.
             'message_id' => [
                 'required',
-                Rule::exists('chat_messages', 'id')
-                    ->where('conversation_id', $this->conversationId()),
+                Rule::exists(Message::class, 'id')
+                    ->where('conversation_id', $this->conversationId())
+                    ->whereNull('deleted_at'),
             ],
             'emoji' => ['required', 'string', 'max:16'],
         ];
@@ -43,21 +35,5 @@ class ToggleReactionRequest extends FormRequest
     public function emoji(): string
     {
         return (string) $this->string('emoji');
-    }
-
-    /**
-     * Route model binding resolves this to a Conversation. The string branch
-     * covers a raw id, and the empty fallback makes the exists rule match
-     * nothing rather than accidentally matching every conversation.
-     */
-    private function conversationId(): string
-    {
-        $conversation = $this->route('conversation');
-
-        if ($conversation instanceof Conversation) {
-            return $conversation->id;
-        }
-
-        return is_string($conversation) ? $conversation : '';
     }
 }

@@ -38,6 +38,11 @@ return new class extends Migration
             // ULIDs sort lexicographically by time, so this index serves both
             // chronological ordering and cursor pagination.
             $table->index(['conversation_id', 'id']);
+
+            // No reader today. It exists for the deferred response-speed
+            // metrics, which aggregate a participant's messages over a time
+            // window — see ADR 0008. Remove it if that work is abandoned rather
+            // than leaving write amplification with nothing behind it.
             $table->index(['participant_id', 'created_at']);
         });
 

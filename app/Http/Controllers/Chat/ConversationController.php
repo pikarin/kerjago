@@ -10,6 +10,7 @@ use App\Chat\Actions\SearchMessages;
 use App\Chat\Models\Conversation;
 use App\Chat\Models\Message;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Chat\SearchConversationsRequest;
 use App\Http\Resources\Chat\ConversationResource;
 use App\Http\Resources\Chat\MessageResource;
 use App\Models\User;
@@ -26,7 +27,7 @@ class ConversationController extends Controller
      * The inbox, with no conversation open.
      */
     public function index(
-        Request $request,
+        SearchConversationsRequest $request,
         ListConversations $listConversations,
         ResolveChatDirectory $resolveChatDirectory,
         SearchMessages $searchMessages,
@@ -35,7 +36,7 @@ class ConversationController extends Controller
         $user = $request->user();
 
         $conversations = $listConversations->handle($user->id);
-        $query = $request->string('q')->trim()->toString();
+        $query = $request->searchQuery();
 
         return Inertia::render('chat/Index', [
             'conversations' => $this->propsFromDirectory(
@@ -88,17 +89,20 @@ class ConversationController extends Controller
         MarkConversationRead $markConversationRead,
         ResolveChatDirectory $resolveChatDirectory,
     ): Response {
+        // Loaded before authorizing, not after: the policy authorizes on
+        // participants, so loading it first is what makes that check use the
+        // relation instead of falling back to its own EXISTS query.
+        $conversation->loadMissing('participants:id,conversation_id,participant_id,last_read_at,left_at');
+
         Gate::authorize('view', $conversation);
 
         /** @var User $user */
         $user = $request->user();
 
-        // Opening a conversation is what marks it read. Done before the inbox
-        // query so the unread badge reflects this visit.
+        // Before the inbox query, so the unread badge reflects this visit.
         $markConversationRead->handle($conversation, $user->id);
 
         $conversations = $listConversations->handle($user->id);
-        $conversation->loadMissing('participants');
 
         // One directory for the inbox and the open conversation together, so
         // opening a conversation costs no extra identity resolution.
