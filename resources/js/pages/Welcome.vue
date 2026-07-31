@@ -17,8 +17,8 @@ import { Input } from '@/components/ui/input';
 import { register } from '@/routes';
 import { index as jobsIndex } from '@/routes/jobs';
 import type { User } from '@/types';
-import { COUNTRY_LABELS  } from '@/types/kerjago';
-import type {JobSummary} from '@/types/kerjago';
+import { COUNTRY_LABELS } from '@/types/kerjago';
+import type { JobSummary } from '@/types/kerjago';
 
 defineProps<{
     stats: {
