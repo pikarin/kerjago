@@ -5,6 +5,7 @@ import {
     Building2,
     FileText,
     LayoutGrid,
+    MessagesSquare,
     Search,
     UserRound,
     UserSearch,
@@ -23,6 +24,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import { index as chatIndex } from '@/routes/chat';
 import { index as employerJobsIndex } from '@/routes/employer/jobs';
 import { edit as employerProfileEdit } from '@/routes/employer/profile';
 import { index as talentIndex } from '@/routes/employer/talent';
@@ -34,8 +36,17 @@ import type { NavItem, User, UserRole } from '@/types';
 const page = usePage();
 const user = computed(() => page.props.auth.user as User);
 
+// Chat is available to every role — one inbox for applications, outreach and
+// the internal team alike — so it appears in all three menus.
+const chatNavItem: NavItem = {
+    title: 'Chat',
+    href: chatIndex(),
+    icon: MessagesSquare,
+};
+
 const employerNavItems: NavItem[] = [
     { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+    chatNavItem,
     { title: 'My jobs', href: employerJobsIndex(), icon: Briefcase },
     { title: 'Talent search', href: talentIndex(), icon: UserSearch },
     { title: 'Company profile', href: employerProfileEdit(), icon: Building2 },
@@ -43,6 +54,7 @@ const employerNavItems: NavItem[] = [
 
 const jobseekerNavItems: NavItem[] = [
     { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+    chatNavItem,
     { title: 'Find jobs', href: jobsIndex(), icon: Search },
     { title: 'My applications', href: myApplicationsIndex(), icon: FileText },
     { title: 'My profile', href: jobseekerProfileEdit(), icon: UserRound },
@@ -50,6 +62,7 @@ const jobseekerNavItems: NavItem[] = [
 
 const staffNavItems: NavItem[] = [
     { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+    chatNavItem,
 ];
 
 // Keyed by UserRole so adding a role is a type error here rather than a

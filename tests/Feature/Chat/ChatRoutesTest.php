@@ -58,6 +58,30 @@ test('a participant can open a conversation', function () {
         );
 });
 
+/**
+ * The inbox UI labels messages by looking their participant_id up in the
+ * conversation's participant list, and identifies the viewer from the shared
+ * auth prop. Both are pinned here because trimming either would break rendering
+ * at runtime without failing any other test.
+ */
+test('the chat page carries the viewer identity the UI needs', function () {
+    [$conversation, $user] = conversationForUser();
+
+    $this->actingAs($user)
+        ->get(route('chat.show', $conversation))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('auth.user.id', $user->id)
+            ->has('conversation.participants', 2)
+            ->where(
+                'conversation.participants',
+                fn ($participants) => collect($participants)
+                    ->where('is_viewer', true)
+                    ->count() === 1,
+            ),
+        );
+});
+
 test('a non-participant cannot open a conversation', function () {
     [$conversation] = conversationForUser();
 
