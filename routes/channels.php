@@ -1,5 +1,7 @@
 <?php
 
+use App\Chat\Contracts\ChatAuthorizer;
+use App\Chat\Models\Conversation;
 use App\Models\User;
 use Illuminate\Support\Facades\Broadcast;
 
@@ -18,4 +20,26 @@ use Illuminate\Support\Facades\Broadcast;
 
 Broadcast::channel('App.Models.User.{id}', function (User $user, string $id): bool {
     return $user->id === $id;
+});
+
+/*
+ * Chat conversations.
+ *
+ * A presence channel, so returning the array is what enables here(), joining()
+ * and leaving() — and typing indicators, which travel client-to-client over
+ * whisper() and never touch the server.
+ *
+ * Authorization delegates to ChatAuthorizer, the same contract the HTTP layer
+ * uses. Routing both through one method is what stops the page and the socket
+ * from drifting apart, which is the usual way a chat app ends up authorizing
+ * one but not the other.
+ *
+ * @return array{id: string, name: string}|null
+ */
+Broadcast::channel('chat.conversations.{conversation}', function (User $user, Conversation $conversation): ?array {
+    if (! app(ChatAuthorizer::class)->canAccess($user->id, $conversation)) {
+        return null;
+    }
+
+    return ['id' => $user->id, 'name' => $user->name];
 });

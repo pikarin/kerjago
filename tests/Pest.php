@@ -1,6 +1,9 @@
 <?php
 
+use App\Chat\Events\MessageRead;
+use App\Chat\Events\MessageSent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 /*
@@ -17,6 +20,27 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+/*
+|--------------------------------------------------------------------------
+| Chat broadcast transport
+|--------------------------------------------------------------------------
+|
+| Tests run against the `reverb` broadcaster because channel authorization is
+| driver-dependent: the `null` and `log` drivers have an empty auth() and would
+| authorize every channel, making those tests pass vacuously.
+|
+| The cost is that dispatching a ShouldBroadcast event tries to POST to a Reverb
+| server that is not running. These two events are faked so sending a message
+| does not require one. Channel authorization is unaffected — /broadcasting/auth
+| does not go through the event dispatcher — and broadcastOn()/broadcastWith()
+| are asserted directly against freshly constructed events.
+|
+*/
+
+pest()->beforeEach(function () {
+    Event::fake([MessageSent::class, MessageRead::class]);
+})->in('Feature/Chat');
 
 /*
 |--------------------------------------------------------------------------
