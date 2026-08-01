@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\EmployerProfileFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,7 +23,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User $user
- * @property-read \Illuminate\Database\Eloquent\Collection<int, Job> $jobs
+ * @property-read Collection<int, Job> $jobs
  */
 #[Fillable(['company_name', 'industry', 'country', 'city', 'website'])]
 class EmployerProfile extends Model
