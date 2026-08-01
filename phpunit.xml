@@ -18,6 +18,10 @@
         </include>
     </source>
     <php>
+        <!-- Filament pushes a test run past PHP's 128M default, most visibly
+             when blade-ui-kit/blade-icons rebuilds its manifest after a cache
+             clear. See docs/adr/0011. -->
+        <ini name="memory_limit" value="1G"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

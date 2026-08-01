@@ -9,7 +9,12 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * @extends Factory<User>
+ * Generic over the model so subclasses — App\Admingo\Database\Factories\
+ * StaffUserFactory — can narrow it without redeclaring the definition.
+ *
+ * @template TModel of User
+ *
+ * @extends Factory<TModel>
  */
 class UserFactory extends Factory
 {
