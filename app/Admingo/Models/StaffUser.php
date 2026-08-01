@@ -3,6 +3,7 @@
 namespace App\Admingo\Models;
 
 use App\Admingo\Database\Factories\StaffUserFactory;
+use App\Admingo\Models\Scopes\StaffScope;
 use App\Enums\UserRole;
 use App\Models\User;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
@@ -10,9 +11,7 @@ use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use SensitiveParameter;
@@ -26,14 +25,17 @@ use SensitiveParameter;
  * Filament exists. tests/Unit/Admingo/ArchitectureTest.php enforces that, with
  * no allow-list. See docs/adr/0011.
  *
- * The global scope is also the outermost of the panel's three access gates: a
+ * StaffScope is also the outermost of the panel's three access gates: a
  * non-staff row is not merely denied, it is unretrievable by the guard, so no
  * session and no Livewire request can ever be established for one.
+ *
+ * Hidden attributes are inherited from App\Models\User; only the fillable list
+ * is narrowed here, to keep `role` out of mass assignment.
  *
  * @property-read AppAuthenticator|null $appAuthenticator
  */
 #[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
+#[ScopedBy(StaffScope::class)]
 class StaffUser extends User implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery
 {
     /**
@@ -44,10 +46,7 @@ class StaffUser extends User implements FilamentUser, HasAppAuthentication, HasA
 
     protected static function booted(): void
     {
-        static::addGlobalScope(
-            'staff',
-            fn (Builder $query) => $query->where('role', UserRole::Staff->value),
-        );
+        parent::booted();
 
         // Role is deliberately not fillable: it is forced here so that
         // `make:filament-user` provisions a valid staff row against a
@@ -107,10 +106,7 @@ class StaffUser extends User implements FilamentUser, HasAppAuthentication, HasA
         });
     }
 
-    /**
-     * @return StaffUserFactory
-     */
-    protected static function newFactory(): Factory
+    protected static function newFactory(): StaffUserFactory
     {
         return StaffUserFactory::new();
     }
