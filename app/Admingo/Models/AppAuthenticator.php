@@ -6,7 +6,6 @@ use App\Admingo\Database\Factories\AppAuthenticatorFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
-use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -53,10 +52,7 @@ class AppAuthenticator extends Model
         ];
     }
 
-    /**
-     * @return AppAuthenticatorFactory
-     */
-    protected static function newFactory(): Factory
+    protected static function newFactory(): AppAuthenticatorFactory
     {
         return AppAuthenticatorFactory::new();
     }
