@@ -12,6 +12,7 @@
 arch('the chat module does not depend on the host application')
     ->expect('App\Chat')
     ->not->toUse([
+        'App\Admingo',
         'App\Models',
         'App\Enums',
         'App\Http',

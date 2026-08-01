@@ -2,6 +2,9 @@
 /bootstrap/ssr
 /node_modules
 /public/build
+/public/css/filament
+/public/fonts/filament
+/public/js/filament
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage
@@ -24,6 +27,7 @@ yarn-error.log
 CLAUDE.md
 AGENTS.md
 /docs
+/CONTEXT.md
 /auth.json
 /.fleet
 /.idea

@@ -1,5 +1,6 @@
 <?php
 
+use App\Admingo\Models\StaffUser;
 use App\Models\User;
 
 return [
@@ -42,6 +43,16 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Admingo runs on its own guard so that a marketplace session does not
+        // grant panel access, and a panel session does not grant marketplace
+        // access. Laravel keeps a separate session key per guard, so this costs
+        // nothing but a staff double login until staff tooling moves into
+        // Admingo. See docs/adr/0011.
+        'admingo' => [
+            'driver' => 'session',
+            'provider' => 'staff_users',
+        ],
     ],
 
     /*
@@ -65,6 +76,14 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        // Same `users` table, scoped to the staff role by a global scope on the
+        // model. A demoted user is therefore unretrievable by the admingo
+        // guard rather than merely denied by it.
+        'staff_users' => [
+            'driver' => 'eloquent',
+            'model' => StaffUser::class,
         ],
 
         // 'users' => [
