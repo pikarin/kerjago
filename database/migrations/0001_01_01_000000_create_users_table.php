@@ -18,6 +18,14 @@ return new class extends Migration
             $table->string('role')->index();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+
+            // Fortify's two-factor columns, folded in from its published
+            // migration. Distinct from Admingo's multi-factor credentials,
+            // which live in admingo_app_authenticators — see docs/adr/0011.
+            $table->text('two_factor_secret')->nullable();
+            $table->text('two_factor_recovery_codes')->nullable();
+            $table->timestamp('two_factor_confirmed_at')->nullable();
+
             $table->rememberToken();
             $table->timestamps();
         });

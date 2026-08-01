@@ -22,11 +22,22 @@ return new class extends Migration
             $table->unsignedBigInteger('salary_min');
             $table->unsignedBigInteger('salary_max');
             $table->string('currency', 3);
+            $table->string('employment_type')->nullable();
+            $table->string('work_arrangement')->nullable();
+            $table->string('experience_level')->nullable();
+            $table->string('education_level')->nullable();
             $table->string('status')->default('draft');
             $table->timestamps();
 
             $table->index(['status', 'location_country']);
             $table->index(['currency', 'salary_min', 'salary_max']);
+
+            // One composite per facet, each led by status: search always
+            // filters to published jobs first.
+            $table->index(['status', 'employment_type']);
+            $table->index(['status', 'work_arrangement']);
+            $table->index(['status', 'experience_level']);
+            $table->index(['status', 'education_level']);
         });
     }
 
