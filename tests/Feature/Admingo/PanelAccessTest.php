@@ -107,8 +107,8 @@ test('multi-factor credentials round-trip through the Admingo-owned table', func
     $staff->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
     $staff->saveAppAuthenticationRecoveryCodes(['one', 'two']);
 
-    expect($staff->fresh()->getAppAuthenticationSecret())->toBe('JBSWY3DPEHPK3PXP')
-        ->and($staff->fresh()->getAppAuthenticationRecoveryCodes())->toBe(['one', 'two']);
+    expect($staff->refresh()->getAppAuthenticationSecret())->toBe('JBSWY3DPEHPK3PXP')
+        ->and($staff->refresh()->getAppAuthenticationRecoveryCodes())->toBe(['one', 'two']);
 
     // Nothing Filament-shaped leaked onto the domain table.
     expect(DB::getSchemaBuilder()->hasColumn('users', 'app_authentication_secret'))->toBeFalse();

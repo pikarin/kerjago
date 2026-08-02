@@ -1,6 +1,9 @@
 includes:
     - vendor/larastan/larastan/extension.neon
     - vendor/nesbot/carbon/extension.neon
+    # Teaches PHPStan Pest's functional API, so tests/ can be analysed at the
+    # same level as app/ instead of being excluded from it.
+    - vendor/pestphp/pest-plugin-phpstan/extension.neon
 
 parameters:
     paths:
@@ -9,5 +12,12 @@ parameters:
         - config/
         - database/
         - routes/
+        # Tests are analysed where they have been written to hold up at level
+        # 10. The rest of tests/ is not there yet (114 errors at the time of
+        # writing), so it is left out rather than baselined.
+        - tests/Pest.php
+        - tests/Browser/
+        - tests/Feature/Admingo/
+        - tests/Unit/Admingo/
 
     level: 10

@@ -60,6 +60,12 @@ jobs:
       - name: Install Node Dependencies
         run: npm i
 
+      # tests/Browser runs as part of `php artisan test`, and the Pest browser
+      # plugin drives a real Chromium through Playwright's own server. Only
+      # Chromium is downloaded: nothing in the suite pins another engine.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
