@@ -11,6 +11,12 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <!-- Real-browser end-to-end tests. Last, so the fast suites report
+             first, and excluded from the default run by `php artisan test`
+             through the `e2e` group. -->
+        <testsuite name="Browser">
+            <directory>tests/Browser</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>

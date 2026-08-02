@@ -37,3 +37,5 @@ AGENTS.md
 /.junie
 /.claude
 /.ai
+/storage/framework/testing
+/tests/Browser/Screenshots
