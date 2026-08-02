@@ -1,9 +1,15 @@
 <?php
 
+use App\Admingo\Models\StaffUser;
 use App\Chat\Events\MessageRead;
 use App\Chat\Events\MessageSent;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\File;
+use Pest\Browser\Api\AwaitableWebpage;
+use Pest\Browser\Api\PendingAwaitablePage;
+use Pest\Browser\Api\Webpage;
 use Tests\TestCase;
 
 /*
@@ -19,7 +25,7 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
-    ->in('Feature');
+    ->in('Feature', 'Browser');
 
 /*
 |--------------------------------------------------------------------------
@@ -50,6 +56,34 @@ pest()->beforeEach(function () {
 
 /*
 |--------------------------------------------------------------------------
+| Browser session storage
+|--------------------------------------------------------------------------
+|
+| The suite runs on the `array` session driver, which is per-request: the
+| browser server handles every request through a fresh kernel, so an array
+| session is empty again by the time a redirect arrives and no login can ever
+| complete. Browser tests get the `file` driver instead, cleared per test so
+| one test's session cannot leak into the next.
+|
+| The files go to their own directory rather than storage/framework/sessions,
+| which is a tracked directory whose .gitignore would be swept away with them.
+|
+*/
+
+pest()->beforeEach(function () {
+    $sessionDirectory = storage_path('framework/testing/sessions');
+
+    config([
+        'session.driver' => 'file',
+        'session.files' => $sessionDirectory,
+    ]);
+
+    File::deleteDirectory($sessionDirectory);
+    File::ensureDirectoryExists($sessionDirectory);
+})->in('Browser');
+
+/*
+|--------------------------------------------------------------------------
 | Expectations
 |--------------------------------------------------------------------------
 |
@@ -74,7 +108,55 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+function something(): void
 {
     // ..
+}
+
+/**
+ * Enrol a staff member in Admingo's app authentication, the way the panel's
+ * own set-up page would, and hand back the plaintext secret so a browser test
+ * can generate codes for them.
+ *
+ * @param  array<string, mixed>  $attributes
+ * @return array{0: StaffUser, 1: string}
+ */
+function enrolStaffUser(array $attributes = []): array
+{
+    $staff = StaffUser::factory()->create($attributes);
+
+    $provider = AppAuthentication::make();
+    $provider->saveSecret($staff, $secret = $provider->generateSecret());
+
+    return [$staff->refresh(), $secret];
+}
+
+/**
+ * Assert that the page shows the given text, allowing for a Livewire round-trip
+ * or a redirect still being in flight.
+ *
+ * `assertSee()` reads the DOM once and does not poll, so asserting straight
+ * after a submit is a race that passes only while the response happens to beat
+ * the next statement — and the element has to be visible at that instant, not
+ * merely present, which rules out waiting on the text alone. Retrying the whole
+ * assertion covers both. The last attempt is deliberately left unguarded, so a
+ * genuine failure still arrives through the plugin, with its screenshot.
+ */
+function assertPageEventuallyShows(AwaitableWebpage|PendingAwaitablePage|Webpage $page, string $text, int $timeoutMilliseconds = 10_000): AwaitableWebpage|PendingAwaitablePage|Webpage
+{
+    $deadline = microtime(true) + ($timeoutMilliseconds / 1000);
+
+    while (microtime(true) < $deadline) {
+        try {
+            $page->assertSee($text);
+
+            return $page;
+        } catch (Throwable) {
+            usleep(100_000);
+        }
+    }
+
+    $page->assertSee($text);
+
+    return $page;
 }
