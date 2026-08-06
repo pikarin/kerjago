@@ -1,11 +1,16 @@
 <?php
 
 use App\Enums\Availability;
+use App\Enums\EducationLevel;
 use App\Enums\Gender;
+use App\Enums\Language;
+use App\Models\Education;
 use App\Models\EmployerProfile;
+use App\Models\JobseekerLanguage;
 use App\Models\JobseekerProfile;
 use App\Models\User;
 use App\Models\WorkExperience;
+use Illuminate\Support\Carbon;
 
 test('employer with a company profile can browse jobseeker profiles', function () {
     JobseekerProfile::factory(3)->create();
@@ -102,8 +107,12 @@ test('facet values combine with OR within a facet and AND across facets', functi
 });
 
 test('talent can be filtered by skills and languages', function () {
-    JobseekerProfile::factory()->create(['skills' => ['PHP', 'Laravel'], 'languages' => ['id', 'en']]);
-    JobseekerProfile::factory()->create(['skills' => ['Figma'], 'languages' => ['th']]);
+    $polyglot = JobseekerProfile::factory()->create(['skills' => ['PHP', 'Laravel']]);
+    JobseekerLanguage::factory()->for($polyglot, 'jobseekerProfile')->create(['language' => Language::Indonesian]);
+    JobseekerLanguage::factory()->for($polyglot, 'jobseekerProfile')->create(['language' => Language::English]);
+
+    $designer = JobseekerProfile::factory()->create(['skills' => ['Figma']]);
+    JobseekerLanguage::factory()->for($designer, 'jobseekerProfile')->create(['language' => Language::Thai]);
 
     $employer = EmployerProfile::factory()->create()->user;
 
@@ -199,13 +208,21 @@ test('talent search survives an unreachable typesense server via the database fa
 });
 
 test('search results never expose contact details', function () {
-    JobseekerProfile::factory()->create(['phone' => '+6281234567890']);
+    JobseekerProfile::factory()->create([
+        'phone' => '+6281234567890',
+        'whatsapp' => '+6281234567890',
+        'date_of_birth' => '1995-04-12',
+    ]);
 
     $this->actingAs(EmployerProfile::factory()->create()->user)
         ->get(route('employer.talent.index'))
         ->assertInertia(fn ($page) => $page
             ->has('profiles.data', 1)
             ->missing('profiles.data.0.phone')
+            ->missing('profiles.data.0.whatsapp')
+            // Age is a coarser derivative and is shared; the birth date is not.
+            ->missing('profiles.data.0.date_of_birth')
+            ->where('profiles.data.0.age', Carbon::parse('1995-04-12')->age)
         );
 });
 
@@ -224,20 +241,42 @@ test('search documents always carry the embedding source fields, with fallbacks'
         ->and($document['experience_titles'])->toBe(['Chef'])
         ->and($document['preferred_location'])->toBe('Jakarta, Indonesia')
         ->and($document['location'])->toBe('Jakarta, Indonesia')
-        ->and($document)->not->toHaveKeys(['availability', 'gender', 'education_level', 'languages', 'preferred_country', 'preferred_city']);
+        ->and($document['summary'])->toBe('')
+        ->and($document['current_company'])->toBe('')
+        ->and($document['education_institutions'])->toBe([])
+        ->and($document['language_codes'])->toBe([])
+        ->and($document)->not->toHaveKeys(['availability', 'gender', 'education_level', 'state', 'preferred_country', 'preferred_city']);
 
     $full = JobseekerProfile::factory()->create([
         'preferred_job_title' => 'Head Chef',
         'preferred_city' => 'Singapore',
+        'preferred_state' => 'Central Region',
         'preferred_country' => 'SG',
+        'current_company' => 'Warung Enak',
+        'summary' => 'Runs a brigade of twelve.',
     ]);
     WorkExperience::factory()->for($full, 'jobseekerProfile')->create(['job_title' => 'Line Cook']);
+    Education::factory()->for($full, 'jobseekerProfile')->create(['institution' => 'Le Cordon Bleu']);
+    JobseekerLanguage::factory()->for($full, 'jobseekerProfile')->create(['language' => Language::English]);
 
     $document = $full->refresh()->toSearchableArray();
 
     expect($document['preferred_job_title'])->toBe('Head Chef')
         ->and($document['experience_titles'])->toBe(['Line Cook'])
-        ->and($document['preferred_location'])->toBe('Singapore, Singapore');
+        ->and($document['preferred_location'])->toBe('Singapore, Central Region, Singapore')
+        ->and($document['summary'])->toBe('Runs a brigade of twelve.')
+        ->and($document['current_company'])->toBe('Warung Enak')
+        ->and($document['education_institutions'])->toBe(['Le Cordon Bleu'])
+        ->and($document['language_codes'])->toBe(['en']);
+});
+
+test('the search document facets on the highest education level', function () {
+    $profile = JobseekerProfile::factory()->create();
+
+    Education::factory()->for($profile, 'jobseekerProfile')->create(['level' => EducationLevel::Diploma]);
+    Education::factory()->for($profile, 'jobseekerProfile')->create(['level' => EducationLevel::Master]);
+
+    expect($profile->refresh()->toSearchableArray()['education_level'])->toBe('master');
 });
 
 test('experience years bucket into the expected bands', function (int $years, string $band) {

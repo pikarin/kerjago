@@ -40,11 +40,17 @@ class DatabaseSeeder extends Seeder
                     'email' => 'jobseeker@example.com',
                 ]);
 
-                $jobseekerProfile = JobseekerProfile::factory()->withExperience()->for($jobseeker)->create([
-                    'full_name' => 'Demo Jobseeker',
-                    'country' => 'ID',
-                    'city' => 'Jakarta',
-                ]);
+                $jobseekerProfile = JobseekerProfile::factory()
+                    ->withExperience()
+                    ->withEducation()
+                    ->withLanguages()
+                    ->for($jobseeker)
+                    ->create([
+                        'full_name' => 'Demo Jobseeker',
+                        'country' => 'ID',
+                        'state' => 'DKI Jakarta',
+                        'city' => 'Jakarta',
+                    ]);
 
                 $jobs = Job::factory(25)->recycle($employerProfile)->create();
 
@@ -53,7 +59,11 @@ class DatabaseSeeder extends Seeder
                     ->for($jobseekerProfile)
                     ->create();
 
-                JobseekerProfile::factory(12)->withExperience()->create();
+                JobseekerProfile::factory(12)
+                    ->withExperience()
+                    ->withEducation()
+                    ->withLanguages()
+                    ->create();
                 JobseekerProfile::factory(3)->minimal()->create();
                 Job::factory(5)->draft()->recycle($employerProfile)->create();
                 Job::factory(3)->legacy()->recycle($employerProfile)->create();

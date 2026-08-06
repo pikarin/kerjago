@@ -11,19 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('work_experiences', function (Blueprint $table) {
+        Schema::create('educations', function (Blueprint $table) {
             $table->ulid('id')->primary();
             $table->foreignUlid('jobseeker_profile_id')->constrained()->cascadeOnDelete();
-            $table->string('job_title');
-            $table->string('company_name');
-            $table->text('description')->nullable();
-            $table->date('start_date');
-            $table->date('end_date')->nullable();
+            $table->string('institution');
+            $table->string('field_of_study')->nullable();
+            $table->string('level')->nullable();
 
-            // Stored rather than inferred from a null end_date, so a
-            // finished role with an unstated end date does not render as
-            // "Present" (ADR 0012).
-            $table->boolean('is_current')->default(false);
+            // Nullable because candidates routinely omit them; the UI renders
+            // an unstated date as "Unspecified" rather than rejecting the row.
+            $table->date('start_date')->nullable();
+            $table->date('end_date')->nullable();
 
             $table->unsignedTinyInteger('sort')->default(0);
             $table->timestamps();
@@ -37,6 +35,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('work_experiences');
+        Schema::dropIfExists('educations');
     }
 };

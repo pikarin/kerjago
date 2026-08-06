@@ -35,8 +35,10 @@ class WorkExperienceFactory extends Factory
                 'Account Manager',
             ]),
             'company_name' => fake()->company(),
+            'description' => fake()->paragraph(),
             'start_date' => $start,
             'end_date' => fake()->dateTimeBetween($start, '-1 month'),
+            'is_current' => false,
             'sort' => 0,
         ];
     }
@@ -48,6 +50,7 @@ class WorkExperienceFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'end_date' => null,
+            'is_current' => true,
         ]);
     }
 }

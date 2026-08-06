@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-use Database\Factories\WorkExperienceFactory;
+use App\Enums\EducationLevel;
+use Database\Factories\EducationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,26 +14,33 @@ use Illuminate\Support\Carbon;
 /**
  * @property string $id
  * @property string $jobseeker_profile_id
- * @property string $job_title
- * @property string $company_name
- * @property string|null $description
- * @property Carbon $start_date
+ * @property string $institution
+ * @property string|null $field_of_study
+ * @property EducationLevel|null $level
+ * @property Carbon|null $start_date
  * @property Carbon|null $end_date
- * @property bool $is_current
  * @property int $sort
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read JobseekerProfile $jobseekerProfile
  */
-#[Fillable(['job_title', 'company_name', 'description', 'start_date', 'end_date', 'is_current', 'sort'])]
-class WorkExperience extends Model
+#[Fillable(['institution', 'field_of_study', 'level', 'start_date', 'end_date', 'sort'])]
+class Education extends Model
 {
-    /** @use HasFactory<WorkExperienceFactory> */
+    /** @use HasFactory<EducationFactory> */
     use HasFactory, HasUlids;
 
     /**
+     * "Education" is uncountable to Laravel's inflector, which would resolve
+     * the table to `education`.
+     *
+     * @var string
+     */
+    protected $table = 'educations';
+
+    /**
      * Touching the parent profile fires its saved event, which re-syncs the
-     * profile's search document whenever an experience row changes.
+     * profile's search document whenever an education row changes.
      *
      * @var list<string>
      */
@@ -54,9 +62,9 @@ class WorkExperience extends Model
     protected function casts(): array
     {
         return [
+            'level' => EducationLevel::class,
             'start_date' => 'date',
             'end_date' => 'date',
-            'is_current' => 'boolean',
             'sort' => 'integer',
         ];
     }
