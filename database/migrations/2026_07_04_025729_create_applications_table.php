@@ -22,6 +22,9 @@ return new class extends Migration
 
             $table->unique(['job_id', 'jobseeker_profile_id']);
             $table->index('status');
+            // The unlock quota is spent by application ordinal, so apply time
+            // counts a job's applications on every submission.
+            $table->index(['job_id', 'created_at']);
         });
     }
 

@@ -4,6 +4,7 @@ import { MessagesSquare } from '@lucide/vue';
 import { computed } from 'vue';
 import ConversationList from '@/components/chat/ConversationList.vue';
 import ConversationPane from '@/components/chat/ConversationPane.vue';
+import LockedApplicantList from '@/components/chat/LockedApplicantList.vue';
 import MessageSearch from '@/components/chat/MessageSearch.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import { dashboard } from '@/routes';
@@ -14,7 +15,7 @@ import type {
     ChatMessage,
     ChatSearchResults,
 } from '@/types/chat';
-import type { Paginated } from '@/types/kerjago';
+import type { LockedApplicantTeaser, Paginated } from '@/types/kerjago';
 
 const props = defineProps<{
     conversations: Paginated<ChatConversation>;
@@ -22,6 +23,7 @@ const props = defineProps<{
     messages: Paginated<ChatMessage> | null;
     searchQuery: string;
     searchResults: ChatSearchResults | null;
+    lockedApplicants: LockedApplicantTeaser[];
 }>();
 
 defineOptions({
@@ -68,6 +70,10 @@ const viewerName = computed<string>(
                     v-if="!searchResults"
                     :conversations="conversations.data"
                     :active-id="conversation?.id ?? null"
+                />
+                <LockedApplicantList
+                    v-if="!searchResults"
+                    :applicants="lockedApplicants"
                 />
             </div>
         </aside>

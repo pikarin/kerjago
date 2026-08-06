@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Chat;
 
 use App\Actions\Chat\ResolveChatDirectory;
+use App\Actions\Unlocks\ListLockedApplicantTeasers;
 use App\Chat\Actions\GetConversationMessages;
 use App\Chat\Actions\ListConversations;
 use App\Chat\Actions\MarkConversationRead;
@@ -31,6 +32,7 @@ class ConversationController extends Controller
         ListConversations $listConversations,
         ResolveChatDirectory $resolveChatDirectory,
         SearchMessages $searchMessages,
+        ListLockedApplicantTeasers $listLockedApplicantTeasers,
     ): Response {
         /** @var User $user */
         $user = $request->user();
@@ -39,6 +41,9 @@ class ConversationController extends Controller
         $query = $request->searchQuery();
 
         return Inertia::render('chat/Index', [
+            'lockedApplicants' => $user->employerProfile === null
+                ? []
+                : $listLockedApplicantTeasers->handle($user->employerProfile),
             'conversations' => $this->propsFromDirectory(
                 $request,
                 $conversations,
@@ -88,6 +93,7 @@ class ConversationController extends Controller
         GetConversationMessages $getConversationMessages,
         MarkConversationRead $markConversationRead,
         ResolveChatDirectory $resolveChatDirectory,
+        ListLockedApplicantTeasers $listLockedApplicantTeasers,
     ): Response {
         // Loaded before authorizing, not after: the policy authorizes on
         // participants, so loading it first is what makes that check use the
@@ -113,6 +119,9 @@ class ConversationController extends Controller
         $messages = $getConversationMessages->handle($conversation);
 
         return Inertia::render('chat/Index', [
+            'lockedApplicants' => $user->employerProfile === null
+                ? []
+                : $listLockedApplicantTeasers->handle($user->employerProfile),
             'conversations' => $this->propsFromDirectory($request, $conversations, $directory, $user->id),
             'conversation' => (new ConversationResource($conversation, $directory, $user->id))->toArray($request),
             'messages' => $messages->through(

@@ -27,8 +27,15 @@ return new class extends Migration
             $table->string('experience_level')->nullable();
             $table->string('education_level')->nullable();
             $table->string('status')->default('draft');
+            // Publishing stamps both: expires_at is published_at + 45 days,
+            // frozen at publish time so editing a live ad never moves it.
+            $table->timestamp('published_at')->nullable();
+            $table->timestamp('expires_at')->nullable();
             $table->timestamps();
 
+            // Serves both scopeActive (status + not yet expired) and the
+            // jobs:expire sweep, which reads the same two columns.
+            $table->index(['status', 'expires_at']);
             $table->index(['status', 'location_country']);
             $table->index(['currency', 'salary_min', 'salary_max']);
 

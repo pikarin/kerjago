@@ -36,16 +36,26 @@ use Laravel\Scout\Searchable;
  * @property ExperienceLevel|null $experience_level
  * @property EducationLevel|null $education_level
  * @property JobStatus $status
+ * @property Carbon|null $published_at
+ * @property Carbon|null $expires_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read EmployerProfile $employerProfile
  * @property-read Collection<int, Application> $applications
+ * @property-read Collection<int, CandidateUnlock> $candidateUnlocks
  */
 #[Fillable(['title', 'description', 'skills', 'location_country', 'location_city', 'salary_min', 'salary_max', 'currency', 'employment_type', 'work_arrangement', 'experience_level', 'education_level', 'status'])]
 class Job extends Model
 {
     /** @use HasFactory<JobFactory> */
     use HasFactory, HasUlids, Searchable;
+
+    /**
+     * How long a published ad stays viewable, indexed and appliable. Stamped
+     * onto `expires_at` at publish time rather than computed on read, so the
+     * window a given ad was sold under survives a change to this number.
+     */
+    public const int PUBLISH_WINDOW_DAYS = 45;
 
     /**
      * @var array<string, mixed>
@@ -71,17 +81,56 @@ class Job extends Model
     }
 
     /**
+     * The unlocks this job's quota has paid for. Counting these is what caps
+     * the auto-unlock at ten per job, including across re-publishes.
+     *
+     * @return HasMany<CandidateUnlock, $this>
+     */
+    public function candidateUnlocks(): HasMany
+    {
+        return $this->hasMany(CandidateUnlock::class);
+    }
+
+    /**
+     * Published means both flagged active *and* inside its 45-day window. The
+     * expiry check is here rather than left to the `jobs:expire` sweep so a
+     * missed cron run can never serve an expired ad.
+     *
      * @param  Builder<Job>  $query
      * @return Builder<Job>
      */
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('status', JobStatus::Active);
+        return $query
+            ->where('status', JobStatus::Active)
+            ->where('expires_at', '>', now());
+    }
+
+    /**
+     * Whether the ad is viewable, appliable and indexed — one predicate the
+     * controller, the apply guard and Scout all read.
+     */
+    public function isPublished(): bool
+    {
+        return $this->status === JobStatus::Active && $this->hasRunningWindow();
+    }
+
+    /**
+     * Whether the ad's 45-day term still has time left, whatever its status.
+     *
+     * Distinct from isPublished() on purpose: status is editable and the
+     * timestamps are not, so an ad moved back to Draft still holds a running
+     * window. Publishing consults this, or the Draft round trip would be a way
+     * to restamp the clock.
+     */
+    public function hasRunningWindow(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isFuture();
     }
 
     public function shouldBeSearchable(): bool
     {
-        return $this->status === JobStatus::Active;
+        return $this->isPublished();
     }
 
     /**
@@ -128,6 +177,8 @@ class Job extends Model
             'experience_level' => ExperienceLevel::class,
             'education_level' => EducationLevel::class,
             'status' => JobStatus::class,
+            'published_at' => 'datetime',
+            'expires_at' => 'datetime',
         ];
     }
 }

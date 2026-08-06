@@ -45,7 +45,7 @@ class StoreJobRequest extends FormRequest
             'work_arrangement' => ['required', Rule::enum(WorkArrangement::class)],
             'experience_level' => ['required', Rule::enum(ExperienceLevel::class)],
             'education_level' => ['required', Rule::enum(EducationLevel::class)],
-            'status' => ['required', Rule::enum(JobStatus::class)],
+            'status' => ['required', Rule::enum(JobStatus::class)->only(JobStatus::editableCases())],
         ];
     }
 }

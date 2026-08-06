@@ -48,6 +48,8 @@ class JobController extends Controller
                     'location_country' => $job->location_country,
                     'applications_count' => $job->applications_count,
                     'created_at' => $job->created_at?->diffForHumans(),
+                    'expires_at' => $job->expires_at?->toFormattedDateString(),
+                    'is_published' => $job->isPublished(),
                 ]),
         ]);
     }
@@ -60,7 +62,7 @@ class JobController extends Controller
         return Inertia::render('employer/jobs/Create', [
             'countries' => Country::cases(),
             'currencies' => Currency::cases(),
-            'statuses' => JobStatus::cases(),
+            'statuses' => JobStatus::editableCases(),
             'employmentTypes' => EmploymentType::options(),
             'workArrangements' => WorkArrangement::options(),
             'experienceLevels' => ExperienceLevel::options(),
@@ -114,7 +116,9 @@ class JobController extends Controller
             ],
             'countries' => Country::cases(),
             'currencies' => Currency::cases(),
-            'statuses' => JobStatus::cases(),
+            // Includes the job's current status, so editing a live ad does not
+            // force the employer to demote it first.
+            'statuses' => JobStatus::editableCasesFor($job->status),
             'employmentTypes' => EmploymentType::options(),
             'workArrangements' => WorkArrangement::options(),
             'experienceLevels' => ExperienceLevel::options(),

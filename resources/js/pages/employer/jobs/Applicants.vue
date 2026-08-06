@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Download, Inbox, MapPin, Phone } from '@lucide/vue';
+import { Download, Inbox, Lock, Mail, MapPin, Phone } from '@lucide/vue';
 import EmptyState from '@/components/EmptyState.vue';
 import Heading from '@/components/Heading.vue';
+import LockedBadge from '@/components/LockedBadge.vue';
 import PaginationNav from '@/components/PaginationNav.vue';
 import SkillTags from '@/components/SkillTags.vue';
 import StatusBadge from '@/components/StatusBadge.vue';
@@ -34,11 +35,16 @@ defineProps<{
         title: string;
         status: JobStatus;
     };
+    unlockQuota: {
+        used: number;
+        total: number;
+    };
     applications: Paginated<{
         id: string;
         status: ApplicationStatus;
         cover_note: string | null;
         has_resume: boolean;
+        can_download_resume: boolean;
         applied_at: string | null;
         profile: ApplicantProfile;
     }>;
@@ -76,6 +82,12 @@ function setStatus(applicationId: string, status: ApplicationStatus): void {
             <StatusBadge :status="job.status" />
         </div>
 
+        <p class="text-sm text-muted-foreground">
+            {{ unlockQuota.used }} of {{ unlockQuota.total }} free unlocks used
+            on this job. The first {{ unlockQuota.total }} applicants are
+            unlocked automatically; later applicants stay masked.
+        </p>
+
         <EmptyState
             v-if="applications.data.length === 0"
             :icon="Inbox"
@@ -90,12 +102,15 @@ function setStatus(applicationId: string, status: ApplicationStatus): void {
             >
                 <CardHeader class="flex-row items-start justify-between gap-4">
                     <div class="grid gap-1">
-                        <Link
-                            :href="talentShow(application.profile.id)"
-                            class="font-medium hover:text-primary"
-                        >
-                            {{ application.profile.full_name }}
-                        </Link>
+                        <span class="flex items-center gap-2">
+                            <Link
+                                :href="talentShow(application.profile.id)"
+                                class="font-medium hover:text-primary"
+                            >
+                                {{ application.profile.full_name }}
+                            </Link>
+                            <LockedBadge v-if="application.profile.is_locked" />
+                        </span>
                         <p class="text-sm text-muted-foreground">
                             {{ application.profile.current_title }} ·
                             {{ application.profile.experience_years }} yrs
@@ -112,9 +127,22 @@ function setStatus(applicationId: string, status: ApplicationStatus): void {
                             <span
                                 v-if="application.profile.phone"
                                 class="flex items-center gap-1"
+                                :class="{
+                                    'opacity-60': application.profile.is_locked,
+                                }"
                             >
                                 <Phone class="size-3.5" />
                                 {{ application.profile.phone }}
+                            </span>
+                            <span
+                                v-if="application.profile.email"
+                                class="flex items-center gap-1"
+                                :class="{
+                                    'opacity-60': application.profile.is_locked,
+                                }"
+                            >
+                                <Mail class="size-3.5" />
+                                {{ application.profile.email }}
                             </span>
                         </p>
                     </div>
@@ -164,7 +192,7 @@ function setStatus(applicationId: string, status: ApplicationStatus): void {
                             Applied {{ application.applied_at }}
                         </p>
                         <Button
-                            v-if="application.has_resume"
+                            v-if="application.can_download_resume"
                             as-child
                             variant="outline"
                             size="sm"
@@ -175,6 +203,17 @@ function setStatus(applicationId: string, status: ApplicationStatus): void {
                             >
                                 <Download class="size-3.5" /> Resume
                             </a>
+                        </Button>
+                        <!-- The CV carries every field the mask withholds, so
+                             it stays shut for a locked applicant. -->
+                        <Button
+                            v-else-if="application.has_resume"
+                            variant="outline"
+                            size="sm"
+                            disabled
+                            title="Unlock this candidate to open their resume"
+                        >
+                            <Lock class="size-3.5" /> Resume locked
                         </Button>
                     </div>
                 </CardContent>

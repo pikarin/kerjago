@@ -4,6 +4,7 @@ use App\Enums\Availability;
 use App\Enums\EducationLevel;
 use App\Enums\Gender;
 use App\Enums\Language;
+use App\Models\CandidateUnlock;
 use App\Models\Education;
 use App\Models\EmployerProfile;
 use App\Models\JobseekerLanguage;
@@ -11,6 +12,7 @@ use App\Models\JobseekerProfile;
 use App\Models\User;
 use App\Models\WorkExperience;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 test('employer with a company profile can browse jobseeker profiles', function () {
     JobseekerProfile::factory(3)->create();
@@ -207,8 +209,9 @@ test('talent search survives an unreachable typesense server via the database fa
         );
 });
 
-test('search results never expose contact details', function () {
-    JobseekerProfile::factory()->create([
+test('search results mask a locked candidate and never send the raw values', function () {
+    $profile = JobseekerProfile::factory()->create([
+        'full_name' => 'Budi Santoso Wijaya',
         'phone' => '+6281234567890',
         'whatsapp' => '+6281234567890',
         'date_of_birth' => '1995-04-12',
@@ -218,12 +221,73 @@ test('search results never expose contact details', function () {
         ->get(route('employer.talent.index'))
         ->assertInertia(fn ($page) => $page
             ->has('profiles.data', 1)
-            ->missing('profiles.data.0.phone')
-            ->missing('profiles.data.0.whatsapp')
+            ->where('profiles.data.0.is_locked', true)
+            ->where('profiles.data.0.full_name', 'Budi S. W.')
+            ->where('profiles.data.0.phone', '•••••')
+            ->where('profiles.data.0.whatsapp', '•••••')
+            ->where('profiles.data.0.email', '•••••@•••••.•••••')
             // Age is a coarser derivative and is shared; the birth date is not.
             ->missing('profiles.data.0.date_of_birth')
             ->where('profiles.data.0.age', Carbon::parse('1995-04-12')->age)
+        )
+        ->assertDontSee('Santoso')
+        ->assertDontSee('6281234567890')
+        ->assertDontSee($profile->user->email);
+});
+
+test('an unlocked candidate is shown in full', function () {
+    $employer = EmployerProfile::factory()->create();
+    $profile = JobseekerProfile::factory()->create([
+        'full_name' => 'Budi Santoso Wijaya',
+        'phone' => '+6281234567890',
+    ]);
+
+    CandidateUnlock::factory()->create([
+        'employer_profile_id' => $employer->id,
+        'jobseeker_profile_id' => $profile->id,
+    ]);
+
+    $this->actingAs($employer->user)
+        ->get(route('employer.talent.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('profiles.data.0.is_locked', false)
+            ->where('profiles.data.0.full_name', 'Budi Santoso Wijaya')
+            ->where('profiles.data.0.phone', '+6281234567890')
+            ->where('profiles.data.0.email', $profile->user->email)
         );
+});
+
+test('an expired unlock re-masks the candidate', function () {
+    $employer = EmployerProfile::factory()->create();
+    $profile = JobseekerProfile::factory()->create(['full_name' => 'Budi Santoso']);
+
+    CandidateUnlock::factory()->expired()->create([
+        'employer_profile_id' => $employer->id,
+        'jobseeker_profile_id' => $profile->id,
+    ]);
+
+    $this->actingAs($employer->user)
+        ->get(route('employer.talent.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('profiles.data.0.is_locked', true)
+            ->where('profiles.data.0.full_name', 'Budi S.')
+        );
+});
+
+test('resolving unlocks costs one query however many candidates are listed', function () {
+    $employer = EmployerProfile::factory()->create();
+    JobseekerProfile::factory()->count(8)->create();
+
+    $queries = 0;
+    DB::listen(function ($query) use (&$queries) {
+        if (str_contains($query->sql, 'candidate_unlocks')) {
+            $queries++;
+        }
+    });
+
+    $this->actingAs($employer->user)->get(route('employer.talent.index'))->assertOk();
+
+    expect($queries)->toBe(1);
 });
 
 test('search documents always carry the embedding source fields, with fallbacks', function () {
@@ -294,8 +358,9 @@ test('experience years bucket into the expected bands', function (int $years, st
     [30, '10+'],
 ]);
 
-test('employer can view a candidate profile without contact details', function () {
+test('employer viewing a locked candidate profile sees masked contact details', function () {
     $profile = JobseekerProfile::factory()->withExperience()->create([
+        'full_name' => 'Siti Rahayu',
         'phone' => '+6281234567890',
         'gender' => Gender::Female,
     ]);
@@ -306,7 +371,11 @@ test('employer can view a candidate profile without contact details', function (
         ->assertInertia(fn ($page) => $page
             ->component('employer/talent/Show')
             ->where('profile.id', $profile->id)
-            ->missing('profile.phone')
+            ->where('profile.is_locked', true)
+            ->where('profile.full_name', 'Siti R.')
+            ->where('profile.phone', '•••••')
             ->has('profile.work_experiences', 2)
-        );
+        )
+        ->assertDontSee('Rahayu')
+        ->assertDontSee('6281234567890');
 });

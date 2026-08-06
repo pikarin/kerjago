@@ -1,4 +1,4 @@
-export type JobStatus = 'draft' | 'active' | 'closed';
+export type JobStatus = 'draft' | 'active' | 'closed' | 'expired';
 
 export type ApplicationStatus =
     'submitted' | 'reviewed' | 'shortlisted' | 'rejected';
@@ -97,7 +97,14 @@ export type SpokenLanguage = {
 
 export type TalentProfile = {
     id: string;
+    // True unless the viewing employer holds an active Candidate Unlock. The
+    // strings below are already masked server-side when it is — there is no raw
+    // value on the client to reveal (ADR 0013).
+    is_locked: boolean;
     full_name: string;
+    email: string | null;
+    phone: string | null;
+    whatsapp: string | null;
     current_title: string;
     current_company: string | null;
     preferred_job_title: string | null;
@@ -125,17 +132,30 @@ export type TalentProfile = {
     last_active_at: string | null;
 };
 
-// Applicant cards may show contact details — phone is shared through an
-// application (ADR 0006), unlike talent search where it stays masked.
+// Applicant cards carry contact details only for the first ten applicants to a
+// job; everyone after them arrives masked, exactly as in talent search.
 export type ApplicantProfile = {
     id: string;
+    is_locked: boolean;
     full_name: string;
+    email: string | null;
+    phone: string | null;
+    whatsapp: string | null;
     current_title: string;
     skills: string[];
     experience_years: number;
     country: CountryCode;
     city: string;
-    phone: string | null;
+};
+
+// A locked applicant's thread, rendered from application data rather than from
+// chat: no unread count, no timestamp, no preview.
+export type LockedApplicantTeaser = {
+    application_id: string;
+    job_id: string;
+    job_title: string;
+    display_name: string | null;
+    current_title: string;
 };
 
 export type WorkExperienceItem = {

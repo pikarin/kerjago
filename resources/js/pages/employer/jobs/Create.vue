@@ -55,7 +55,7 @@ defineOptions({
                 work_arrangement: '',
                 experience_level: '',
                 education_level: '',
-                status: 'active',
+                status: 'draft',
             }"
             :submit-url="store().url"
             submit-method="post"

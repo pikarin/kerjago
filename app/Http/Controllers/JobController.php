@@ -8,7 +8,6 @@ use App\Enums\Currency;
 use App\Enums\EducationLevel;
 use App\Enums\EmploymentType;
 use App\Enums\ExperienceLevel;
-use App\Enums\JobStatus;
 use App\Enums\WorkArrangement;
 use App\Http\Requests\SearchJobsRequest;
 use App\Http\Resources\JobDetailResource;
@@ -56,7 +55,9 @@ class JobController extends Controller
      */
     public function show(Request $request, Job $job): Response
     {
-        abort_unless($job->status === JobStatus::Active, 404);
+        // Published, not merely flagged active: an ad past its 45-day window is
+        // gone whether or not the daily sweep has caught it yet (ADR 0013).
+        abort_unless($job->isPublished(), 404);
 
         $job->load('employerProfile');
 

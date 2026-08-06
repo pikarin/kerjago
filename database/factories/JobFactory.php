@@ -84,16 +84,46 @@ class JobFactory extends Factory
             'experience_level' => fake()->randomElement(ExperienceLevel::cases()),
             'education_level' => fake()->randomElement(EducationLevel::cases()),
             'status' => JobStatus::Active,
+            'published_at' => now(),
+            'expires_at' => now()->addDays(Job::PUBLISH_WINDOW_DAYS),
         ];
     }
 
     /**
-     * Indicate that the job is a draft.
+     * Indicate that the job is a draft. A draft has never been published, so
+     * it carries neither timestamp.
      */
     public function draft(): static
     {
         return $this->state(fn (array $attributes) => [
             'status' => JobStatus::Draft,
+            'published_at' => null,
+            'expires_at' => null,
+        ]);
+    }
+
+    /**
+     * A job whose 45-day window has run out.
+     */
+    public function expired(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => JobStatus::Expired,
+            'published_at' => now()->subDays(Job::PUBLISH_WINDOW_DAYS + 1),
+            'expires_at' => now()->subDay(),
+        ]);
+    }
+
+    /**
+     * Still flagged active but past its expiry — the state jobs:expire exists
+     * to clean up, and the one scopeActive must not serve.
+     */
+    public function overdue(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => JobStatus::Active,
+            'published_at' => now()->subDays(Job::PUBLISH_WINDOW_DAYS + 1),
+            'expires_at' => now()->subDay(),
         ]);
     }
 

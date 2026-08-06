@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
-import { Briefcase, Pencil, Plus, Users } from '@lucide/vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { Briefcase, Pencil, Plus, Send, Users } from '@lucide/vue';
 import EmptyState from '@/components/EmptyState.vue';
 import Heading from '@/components/Heading.vue';
 import PaginationNav from '@/components/PaginationNav.vue';
 import StatusBadge from '@/components/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
-import { applicants, create, edit, index } from '@/routes/employer/jobs';
+import {
+    applicants,
+    create,
+    edit,
+    index,
+    publish,
+} from '@/routes/employer/jobs';
 import { countryLabel } from '@/types/kerjago';
 import type { CountryCode, JobStatus, Paginated } from '@/types/kerjago';
 
@@ -20,6 +26,8 @@ defineProps<{
         location_country: CountryCode;
         applications_count: number;
         created_at: string | null;
+        expires_at: string | null;
+        is_published: boolean;
     }>;
 }>();
 
@@ -31,6 +39,10 @@ defineOptions({
         ],
     },
 });
+
+function publishJob(jobId: string): void {
+    router.post(publish(jobId).url, {}, { preserveScroll: true });
+}
 </script>
 
 <template>
@@ -67,6 +79,7 @@ defineOptions({
                         <th class="px-4 py-3 font-medium">Status</th>
                         <th class="px-4 py-3 font-medium">Applicants</th>
                         <th class="px-4 py-3 font-medium">Posted</th>
+                        <th class="px-4 py-3 font-medium">Expires</th>
                         <th class="px-4 py-3">
                             <span class="sr-only">Actions</span>
                         </th>
@@ -98,7 +111,27 @@ defineOptions({
                         <td class="px-4 py-3 text-muted-foreground">
                             {{ job.created_at }}
                         </td>
+                        <td class="px-4 py-3 text-muted-foreground">
+                            {{ job.expires_at ?? '—' }}
+                        </td>
                         <td class="px-4 py-3 text-right">
+                            <!-- Publishing stamps the 45-day clock, so it is a
+                                 button rather than a status the edit form
+                                 sends. Re-publishing an expired ad starts a
+                                 fresh window. -->
+                            <Button
+                                v-if="!job.is_published"
+                                variant="ghost"
+                                size="sm"
+                                @click="publishJob(job.id)"
+                            >
+                                <Send class="size-3.5" />
+                                {{
+                                    job.status === 'expired'
+                                        ? 'Re-publish'
+                                        : 'Publish'
+                                }}
+                            </Button>
                             <Button as-child variant="ghost" size="sm">
                                 <Link :href="edit(job.id)"
                                     ><Pencil class="size-3.5" /> Edit</Link

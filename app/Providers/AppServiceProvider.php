@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Actions\Unlocks\ResolveUnlockedProfileIds;
 use App\Chat\Contracts\ChatAuthorizer;
 use App\Chat\Contracts\ContextResolver;
 use App\Chat\Contracts\ParticipantResolver;
@@ -26,6 +27,11 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->bindChatBoundary();
+
+        // Scoped, not bound: the Action memoizes unlock lookups, and one
+        // instance per request is what turns "a query per candidate card" into
+        // one query per page.
+        $this->app->scoped(ResolveUnlockedProfileIds::class);
     }
 
     /**

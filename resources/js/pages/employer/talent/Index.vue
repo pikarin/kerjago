@@ -12,6 +12,7 @@ import { computed, reactive, ref } from 'vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FacetGroup from '@/components/FacetGroup.vue';
 import Heading from '@/components/Heading.vue';
+import LockedBadge from '@/components/LockedBadge.vue';
 import PaginationNav from '@/components/PaginationNav.vue';
 import SkillTags from '@/components/SkillTags.vue';
 import { Badge } from '@/components/ui/badge';
@@ -362,9 +363,10 @@ const hasFilters = computed(
                         >
                             <CardHeader>
                                 <CardTitle
-                                    class="text-base group-hover:text-primary"
+                                    class="flex items-center gap-2 text-base group-hover:text-primary"
                                 >
                                     {{ profile.full_name }}
+                                    <LockedBadge v-if="profile.is_locked" />
                                 </CardTitle>
                                 <p class="text-sm text-muted-foreground">
                                     {{

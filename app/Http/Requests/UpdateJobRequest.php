@@ -9,6 +9,7 @@ use App\Enums\EmploymentType;
 use App\Enums\ExperienceLevel;
 use App\Enums\JobStatus;
 use App\Enums\WorkArrangement;
+use App\Models\Job;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -21,6 +22,18 @@ class UpdateJobRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->user()?->can('update', $this->route('job')) ?? false;
+    }
+
+    /**
+     * The job being edited, resolved from the route binding.
+     */
+    public function job(): Job
+    {
+        $job = $this->route('job');
+
+        return $job instanceof Job
+            ? $job
+            : Job::query()->where('id', $job)->firstOrFail();
     }
 
     /**
@@ -44,7 +57,12 @@ class UpdateJobRequest extends FormRequest
             'work_arrangement' => ['required', Rule::enum(WorkArrangement::class)],
             'experience_level' => ['required', Rule::enum(ExperienceLevel::class)],
             'education_level' => ['required', Rule::enum(EducationLevel::class)],
-            'status' => ['required', Rule::enum(JobStatus::class)],
+            // The job's own status is allowed through so a live ad can be
+            // edited without first being taken offline; publishing still has
+            // to go through the publish endpoint.
+            'status' => ['required', Rule::enum(JobStatus::class)->only(
+                JobStatus::editableCasesFor($this->job()->status),
+            )],
         ];
     }
 }

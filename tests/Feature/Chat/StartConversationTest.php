@@ -2,16 +2,35 @@
 
 use App\Actions\Chat\StartColdOutreach;
 use App\Actions\Chat\StartInternalConversation;
+use App\Actions\Unlocks\IssueCandidateUnlock;
 use App\Chat\Models\Conversation;
 use App\Enums\ConversationKind;
+use App\Models\CandidateUnlock;
 use App\Models\EmployerProfile;
 use App\Models\JobseekerProfile;
 use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
+
+/**
+ * Cold outreach needs an active Candidate Unlock, so every test that expects a
+ * thread to open has to grant one first.
+ */
+function unlockedTarget(EmployerProfile $employer): JobseekerProfile
+{
+    $target = JobseekerProfile::factory()->create();
+
+    CandidateUnlock::factory()->create([
+        'employer_profile_id' => $employer->id,
+        'jobseeker_profile_id' => $target->id,
+    ]);
+
+    return $target;
+}
 
 test('cold outreach opens a conversation with no context', function () {
     $employer = EmployerProfile::factory()->create();
-    $target = JobseekerProfile::factory()->create();
+    $target = unlockedTarget($employer);
 
     $conversation = app(StartColdOutreach::class)->handle($employer->user, $target);
 
@@ -28,7 +47,7 @@ test('cold outreach opens a conversation with no context', function () {
  */
 test('cold outreach is idempotent per employer and jobseeker pair', function () {
     $employer = EmployerProfile::factory()->create();
-    $target = JobseekerProfile::factory()->create();
+    $target = unlockedTarget($employer);
 
     $first = app(StartColdOutreach::class)->handle($employer->user, $target);
     $second = app(StartColdOutreach::class)->handle($employer->user, $target);
@@ -42,6 +61,13 @@ test('two employers reaching the same jobseeker get separate conversations', fun
     $second = EmployerProfile::factory()->create();
     $target = JobseekerProfile::factory()->create();
 
+    foreach ([$first, $second] as $employer) {
+        CandidateUnlock::factory()->create([
+            'employer_profile_id' => $employer->id,
+            'jobseeker_profile_id' => $target->id,
+        ]);
+    }
+
     app(StartColdOutreach::class)->handle($first->user, $target);
     app(StartColdOutreach::class)->handle($second->user, $target);
 
@@ -49,18 +75,52 @@ test('two employers reaching the same jobseeker get separate conversations', fun
 });
 
 /**
- * Cold outreach is deliberately ungated for now — no consent flag, no rate
- * limit, no blocking. This pins that as the current behaviour so a future gate
- * is a visible change rather than a silent one.
+ * Chat is a contact channel, so an employer with no unlock cannot open one —
+ * otherwise cold outreach would route straight around the mask (ADR 0013).
  */
-test('cold outreach is currently ungated', function () {
+test('cold outreach is refused for a locked candidate', function () {
     $employer = EmployerProfile::factory()->create();
+    $target = JobseekerProfile::factory()->create();
 
-    foreach (JobseekerProfile::factory()->count(5)->create() as $target) {
-        app(StartColdOutreach::class)->handle($employer->user, $target);
-    }
+    expect(fn () => app(StartColdOutreach::class)->handle($employer->user, $target))
+        ->toThrow(AuthorizationException::class);
 
-    expect(Conversation::query()->count())->toBe(5);
+    expect(Conversation::query()->count())->toBe(0);
+});
+
+/**
+ * The sweep revokes the cold-outreach thread as well as application threads,
+ * so re-unlocking has to restore both. StartColdOutreach is idempotent and
+ * hands back the existing row, so a thread left revoked would 403 forever with
+ * no way to recreate it.
+ */
+test('re-unlocking restores a revoked cold-outreach thread', function () {
+    $employer = EmployerProfile::factory()->create();
+    $target = unlockedTarget($employer);
+
+    $conversation = app(StartColdOutreach::class)->handle($employer->user, $target);
+
+    CandidateUnlock::query()->update(['expires_at' => now()->subDay()]);
+    $this->artisan('unlocks:expire')->assertSuccessful();
+
+    expect($conversation->fresh()?->hasParticipant($employer->user_id))->toBeFalse();
+
+    app(IssueCandidateUnlock::class)->handle($employer, $target, now()->addYear());
+
+    expect($conversation->fresh()?->hasParticipant($employer->user_id))->toBeTrue();
+});
+
+test('cold outreach is refused once the unlock expires', function () {
+    $employer = EmployerProfile::factory()->create();
+    $target = JobseekerProfile::factory()->create();
+
+    CandidateUnlock::factory()->expired()->create([
+        'employer_profile_id' => $employer->id,
+        'jobseeker_profile_id' => $target->id,
+    ]);
+
+    expect(fn () => app(StartColdOutreach::class)->handle($employer->user, $target))
+        ->toThrow(AuthorizationException::class);
 });
 
 test('staff can open an internal conversation with either side', function () {
