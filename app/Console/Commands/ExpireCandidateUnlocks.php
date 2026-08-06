@@ -55,12 +55,20 @@ class ExpireCandidateUnlocks extends Command
      * Retire one expired unlock: claim the row, then take the employer out of
      * the pair's threads.
      *
-     * Both happen inside one transaction, under a lock on the unlock row that
-     * IssueCandidateUnlock takes as well. Claiming alone was not enough — a
-     * renewal landing between the claim and the revoke would restore the
-     * employer and then have that undone a statement later, leaving an active
-     * unlock with no thread access, no teaser, and nothing to heal it. Holding
-     * the lock across both makes the two operations take turns.
+     * Both happen inside one transaction. The claiming UPDATE takes a
+     * row-exclusive lock on the unlock row and Postgres holds it to the end of
+     * that transaction, which is what IssueCandidateUnlock's
+     * `SELECT … FOR UPDATE` blocks on — so the sweep and a renewal take turns
+     * rather than interleaving. Note the lock comes from the UPDATE itself:
+     * Laravel's update grammar never emits a FOR UPDATE clause, so adding
+     * ->lockForUpdate() here would read as the guarantee while doing nothing.
+     * Restructuring this into a read-then-write means taking the lock on the
+     * read explicitly.
+     *
+     * Claiming alone was not enough — a renewal landing between the claim and
+     * the revoke would restore the employer and then have that undone a
+     * statement later, leaving an active unlock with no thread access, no
+     * teaser, and nothing to heal it.
      *
      * The row itself is never deleted: a slot is spent when it is issued, and
      * deleting the evidence would hand it back.
@@ -72,7 +80,6 @@ class ExpireCandidateUnlocks extends Command
         return DB::transaction(function () use ($unlock, $revokeParticipant): int {
             $claimed = CandidateUnlock::query()
                 ->whereKey($unlock->id)
-                ->lockForUpdate()
                 // Re-asserts what the chunk was selected on, so a row renewed
                 // since the read updates nothing and is skipped.
                 ->where('expires_at', '<=', now())
