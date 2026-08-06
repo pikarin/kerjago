@@ -1,8 +1,10 @@
 <?php
 
 use App\Actions\Applications\ApplyToJob;
+use App\Actions\Chat\EnsureApplicationConversation;
 use App\Actions\Jobs\PublishJob;
 use App\Actions\Unlocks\IssueCandidateUnlock;
+use App\Chat\Models\Conversation;
 use App\Enums\UnlockSource;
 use App\Models\CandidateUnlock;
 use App\Models\EmployerProfile;
@@ -178,6 +180,38 @@ test('unlocks:expire leaves alone a row renewed since the chunk was read', funct
 
     expect($unlock->revoked_at)->toBeNull()
         ->and(CandidateUnlock::query()->active()->count())->toBe(1);
+});
+
+/**
+ * Claiming the row was not enough on its own: a renewal landing between the
+ * claim and the revoke would restore the employer and then have it undone a
+ * statement later, leaving an active unlock with no thread access, no locked
+ * teaser, and nothing to heal it. The sweep now holds the unlock row's lock
+ * across both, so the two take turns.
+ */
+test('a swept unlock never ends up active but locked out of its threads', function () {
+    $job = Job::factory()->create();
+    $profile = JobseekerProfile::factory()->create();
+
+    app(ApplyToJob::class)->handle($profile, $job);
+    app(EnsureApplicationConversation::class)->handle($job->applications()->firstOrFail());
+
+    CandidateUnlock::query()->update(['expires_at' => now()->subDay()]);
+    $this->artisan('unlocks:expire')->assertSuccessful();
+
+    $employerUserId = $job->employerProfile->user_id;
+    $conversation = Conversation::query()->firstOrFail();
+
+    expect($conversation->hasParticipant($employerUserId))->toBeFalse();
+
+    // Renewing has to put both halves back: the unlock and the access.
+    app(IssueCandidateUnlock::class)->handle($job->employerProfile, $profile, now()->addYear());
+
+    $unlock = CandidateUnlock::query()->firstOrFail();
+
+    expect($unlock->revoked_at)->toBeNull()
+        ->and($unlock->expires_at->isFuture())->toBeTrue()
+        ->and($conversation->fresh()?->hasParticipant($employerUserId))->toBeTrue();
 });
 
 test('a renewal no longer than the current term still lifts a revocation', function () {

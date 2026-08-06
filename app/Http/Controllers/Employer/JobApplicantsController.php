@@ -51,7 +51,6 @@ class JobApplicantsController extends Controller
                 'id' => $job->id,
                 'title' => $job->title,
                 'status' => $job->status,
-                'expires_at' => $job->expires_at?->toIso8601String(),
             ],
             'unlockQuota' => [
                 'used' => $countJobUnlocksUsed->handle($job),

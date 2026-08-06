@@ -34,7 +34,6 @@ defineProps<{
         id: string;
         title: string;
         status: JobStatus;
-        expires_at: string | null;
     };
     unlockQuota: {
         used: number;

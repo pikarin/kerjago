@@ -25,6 +25,13 @@ class PublishJob
 {
     public function handle(Job $job): Job
     {
+        // Nothing to do, and worth returning early: an unconditional save still
+        // fires the `saved` event, so a double-clicked Publish button would
+        // cost a Typesense upsert per click.
+        if ($job->isPublished()) {
+            return $job;
+        }
+
         $attributes = ['status' => JobStatus::Active];
 
         if (! $job->hasRunningWindow()) {

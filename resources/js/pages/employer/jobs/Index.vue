@@ -26,7 +26,6 @@ defineProps<{
         location_country: CountryCode;
         applications_count: number;
         created_at: string | null;
-        published_at: string | null;
         expires_at: string | null;
         is_published: boolean;
     }>;

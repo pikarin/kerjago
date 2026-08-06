@@ -11,6 +11,7 @@ use App\Support\Chat\ColdOutreachKey;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ExpireCandidateUnlocks extends Command
 {
@@ -41,22 +42,7 @@ class ExpireCandidateUnlocks extends Command
             ->chunkById(100, function (Collection $unlocks) use ($revokeParticipant, &$revoked): void {
                 /** @var Collection<int, CandidateUnlock> $unlocks */
                 foreach ($unlocks as $unlock) {
-                    // Claim before revoking, re-asserting both conditions the
-                    // chunk was selected on. An unlock renewed between the read
-                    // and here would otherwise be revoked straight after being
-                    // restored — leaving the employer holding an active unlock
-                    // but locked out of the threads — and stamped revoked, so
-                    // the sweep would skip it forever when the new term lapsed.
-                    if (! $this->claim($unlock)) {
-                        continue;
-                    }
-
-                    // The row itself stays: a slot is spent when it is issued,
-                    // and deleting the evidence would hand it back.
-                    $revoked += $revokeParticipant->handle(
-                        $unlock->employerProfile->user_id,
-                        $this->conversationIdsFor($unlock),
-                    );
+                    $revoked += $this->sweep($unlock, $revokeParticipant);
                 }
             });
 
@@ -66,18 +52,42 @@ class ExpireCandidateUnlocks extends Command
     }
 
     /**
-     * Take ownership of one expired unlock, atomically.
+     * Retire one expired unlock: claim the row, then take the employer out of
+     * the pair's threads.
      *
-     * The WHERE clause repeats the selection criteria, so a row renewed since
-     * the chunk was read updates nothing and is left alone.
+     * Both happen inside one transaction, under a lock on the unlock row that
+     * IssueCandidateUnlock takes as well. Claiming alone was not enough — a
+     * renewal landing between the claim and the revoke would restore the
+     * employer and then have that undone a statement later, leaving an active
+     * unlock with no thread access, no teaser, and nothing to heal it. Holding
+     * the lock across both makes the two operations take turns.
+     *
+     * The row itself is never deleted: a slot is spent when it is issued, and
+     * deleting the evidence would hand it back.
+     *
+     * @return int the number of conversations the employer was removed from
      */
-    private function claim(CandidateUnlock $unlock): bool
+    private function sweep(CandidateUnlock $unlock, RevokeParticipant $revokeParticipant): int
     {
-        return CandidateUnlock::query()
-            ->whereKey($unlock->id)
-            ->where('expires_at', '<=', now())
-            ->whereNull('revoked_at')
-            ->update(['revoked_at' => now()]) === 1;
+        return DB::transaction(function () use ($unlock, $revokeParticipant): int {
+            $claimed = CandidateUnlock::query()
+                ->whereKey($unlock->id)
+                ->lockForUpdate()
+                // Re-asserts what the chunk was selected on, so a row renewed
+                // since the read updates nothing and is skipped.
+                ->where('expires_at', '<=', now())
+                ->whereNull('revoked_at')
+                ->update(['revoked_at' => now()]);
+
+            if ($claimed !== 1) {
+                return 0;
+            }
+
+            return $revokeParticipant->handle(
+                $unlock->employerProfile->user_id,
+                $this->conversationIdsFor($unlock),
+            );
+        });
     }
 
     /**

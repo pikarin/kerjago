@@ -41,35 +41,18 @@ class IssueCandidateUnlock
         ?Job $job = null,
     ): CandidateUnlock {
         $unlock = DB::transaction(function () use ($employerProfile, $jobseekerProfile, $expiresAt, $source, $job): CandidateUnlock {
-            $existing = $this->lockExisting($employerProfile, $jobseekerProfile);
+            $unlock = $this->upsert($employerProfile, $jobseekerProfile, $expiresAt, $source, $job);
 
-            if ($existing !== null) {
-                return $this->extend($existing, $expiresAt);
-            }
+            // Restored inside the transaction, while the unlock row is still
+            // locked, so the expiry sweep cannot interleave: it claims and
+            // revokes under the same row lock, so it either runs wholly before
+            // this — and its claim is reversed here — or wholly after, where
+            // the claim fails its own expires_at check. Outside the lock, a
+            // revoke landing between the restore and the commit would leave an
+            // active unlock with no thread access and nothing to heal it.
+            $this->openWithheldConversations($employerProfile, $jobseekerProfile);
 
-            try {
-                return CandidateUnlock::query()->create([
-                    'employer_profile_id' => $employerProfile->id,
-                    'jobseeker_profile_id' => $jobseekerProfile->id,
-                    'job_id' => $job?->id,
-                    'source' => $source,
-                    'expires_at' => $expiresAt,
-                ]);
-            } catch (UniqueConstraintViolationException $exception) {
-                // lockForUpdate takes no lock when there is no row to lock, so
-                // two applications from the same candidate to two of this
-                // employer's jobs can both find nothing and both insert. The
-                // unique index catches the loser; without this the whole
-                // application would roll back and its resume snapshot would be
-                // left orphaned on disk. Same shape as OpenConversation.
-                $winner = $this->lockExisting($employerProfile, $jobseekerProfile);
-
-                if ($winner === null) {
-                    throw $exception;
-                }
-
-                return $this->extend($winner, $expiresAt);
-            }
+            return $unlock;
         });
 
         // The memo is per-request and caches negatives, so a lookup taken
@@ -78,9 +61,49 @@ class IssueCandidateUnlock
         // their conversation when the queue runs synchronously.
         $this->resolveUnlockedProfileIds->forget($employerProfile, $jobseekerProfile->id);
 
-        $this->openWithheldConversations($employerProfile, $jobseekerProfile);
-
         return $unlock;
+    }
+
+    /**
+     * The unlock row for this pair, created or extended, held under a row lock
+     * for the rest of the caller's transaction.
+     */
+    private function upsert(
+        EmployerProfile $employerProfile,
+        JobseekerProfile $jobseekerProfile,
+        CarbonInterface $expiresAt,
+        UnlockSource $source,
+        ?Job $job,
+    ): CandidateUnlock {
+        $existing = $this->lockExisting($employerProfile, $jobseekerProfile);
+
+        if ($existing !== null) {
+            return $this->extend($existing, $expiresAt);
+        }
+
+        try {
+            return CandidateUnlock::query()->create([
+                'employer_profile_id' => $employerProfile->id,
+                'jobseeker_profile_id' => $jobseekerProfile->id,
+                'job_id' => $job?->id,
+                'source' => $source,
+                'expires_at' => $expiresAt,
+            ]);
+        } catch (UniqueConstraintViolationException $exception) {
+            // lockForUpdate takes no lock when there is no row to lock, so two
+            // applications from the same candidate to two of this employer's
+            // jobs can both find nothing and both insert. The unique index
+            // catches the loser; without this the whole application would roll
+            // back and its resume snapshot would be left orphaned on disk.
+            // Same shape as OpenConversation.
+            $winner = $this->lockExisting($employerProfile, $jobseekerProfile);
+
+            if ($winner === null) {
+                throw $exception;
+            }
+
+            return $this->extend($winner, $expiresAt);
+        }
     }
 
     private function lockExisting(EmployerProfile $employerProfile, JobseekerProfile $jobseekerProfile): ?CandidateUnlock
