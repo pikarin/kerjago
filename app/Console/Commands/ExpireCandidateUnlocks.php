@@ -41,20 +41,43 @@ class ExpireCandidateUnlocks extends Command
             ->chunkById(100, function (Collection $unlocks) use ($revokeParticipant, &$revoked): void {
                 /** @var Collection<int, CandidateUnlock> $unlocks */
                 foreach ($unlocks as $unlock) {
+                    // Claim before revoking, re-asserting both conditions the
+                    // chunk was selected on. An unlock renewed between the read
+                    // and here would otherwise be revoked straight after being
+                    // restored — leaving the employer holding an active unlock
+                    // but locked out of the threads — and stamped revoked, so
+                    // the sweep would skip it forever when the new term lapsed.
+                    if (! $this->claim($unlock)) {
+                        continue;
+                    }
+
+                    // The row itself stays: a slot is spent when it is issued,
+                    // and deleting the evidence would hand it back.
                     $revoked += $revokeParticipant->handle(
                         $unlock->employerProfile->user_id,
                         $this->conversationIdsFor($unlock),
                     );
-
-                    // The row itself stays: a slot is spent when it is issued,
-                    // and deleting the evidence would hand it back.
-                    $unlock->forceFill(['revoked_at' => now()])->save();
                 }
             });
 
         $this->info("Revoked chat access on {$revoked} conversation(s).");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Take ownership of one expired unlock, atomically.
+     *
+     * The WHERE clause repeats the selection criteria, so a row renewed since
+     * the chunk was read updates nothing and is left alone.
+     */
+    private function claim(CandidateUnlock $unlock): bool
+    {
+        return CandidateUnlock::query()
+            ->whereKey($unlock->id)
+            ->where('expires_at', '<=', now())
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now()]) === 1;
     }
 
     /**

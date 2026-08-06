@@ -94,17 +94,31 @@ class IssueCandidateUnlock
 
     /**
      * Longest wins: a second unlock can push the expiry out but never pull it
-     * in. Renewing past an expiry also clears `revoked_at`, or the sweep would
-     * consider the pair already dealt with and never take the employer back out
-     * of their threads when the new term ends.
+     * in.
+     *
+     * `revoked_at` is cleared whenever the row comes out of this with a live
+     * term, not only when the expiry moved. A row can carry a revocation and a
+     * future expiry at once — the sweep and a renewal racing — and leaving the
+     * stamp there would tell the next sweep this pair was already dealt with,
+     * so the employer would never be taken back out of the threads when the
+     * term really ended.
      */
     private function extend(CandidateUnlock $unlock, CarbonInterface $expiresAt): CandidateUnlock
     {
+        $attributes = [];
+
         if ($expiresAt->greaterThan($unlock->expires_at)) {
-            $unlock->forceFill([
-                'expires_at' => $expiresAt,
-                'revoked_at' => null,
-            ])->save();
+            $attributes['expires_at'] = $expiresAt;
+        }
+
+        $stillRunning = ($attributes['expires_at'] ?? $unlock->expires_at)->isFuture();
+
+        if ($unlock->revoked_at !== null && $stillRunning) {
+            $attributes['revoked_at'] = null;
+        }
+
+        if ($attributes !== []) {
+            $unlock->forceFill($attributes)->save();
         }
 
         return $unlock;

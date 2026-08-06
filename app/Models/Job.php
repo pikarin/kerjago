@@ -112,9 +112,20 @@ class Job extends Model
      */
     public function isPublished(): bool
     {
-        return $this->status === JobStatus::Active
-            && $this->expires_at !== null
-            && $this->expires_at->isFuture();
+        return $this->status === JobStatus::Active && $this->hasRunningWindow();
+    }
+
+    /**
+     * Whether the ad's 45-day term still has time left, whatever its status.
+     *
+     * Distinct from isPublished() on purpose: status is editable and the
+     * timestamps are not, so an ad moved back to Draft still holds a running
+     * window. Publishing consults this, or the Draft round trip would be a way
+     * to restamp the clock.
+     */
+    public function hasRunningWindow(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isFuture();
     }
 
     public function shouldBeSearchable(): bool

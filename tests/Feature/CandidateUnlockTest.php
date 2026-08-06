@@ -153,6 +153,54 @@ test('a renewed unlock clears the revocation so the next expiry is swept again',
     expect(CandidateUnlock::query()->firstOrFail()->revoked_at)->toBeNull();
 });
 
+/**
+ * The sweep reads a chunk, then acts on each row. An unlock renewed in that gap
+ * must be left alone: revoking it would lock the employer out of threads they
+ * hold a live unlock for, and stamping revoked_at would make the sweep skip the
+ * row forever when the new term ended.
+ */
+test('unlocks:expire leaves alone a row renewed since the chunk was read', function () {
+    $employer = EmployerProfile::factory()->create();
+    $profile = JobseekerProfile::factory()->create();
+
+    $unlock = CandidateUnlock::factory()->expired()->create([
+        'employer_profile_id' => $employer->id,
+        'jobseeker_profile_id' => $profile->id,
+    ]);
+
+    // Stands in for the renewal landing mid-run: the in-memory row the sweep
+    // read still looks expired, the database row no longer is.
+    CandidateUnlock::query()->whereKey($unlock->id)->update(['expires_at' => now()->addYear()]);
+
+    $this->artisan('unlocks:expire')->assertSuccessful();
+
+    $unlock->refresh();
+
+    expect($unlock->revoked_at)->toBeNull()
+        ->and(CandidateUnlock::query()->active()->count())->toBe(1);
+});
+
+test('a renewal no longer than the current term still lifts a revocation', function () {
+    $employer = EmployerProfile::factory()->create();
+    $profile = JobseekerProfile::factory()->create();
+
+    // The state the sweep-versus-renewal race produces: revoked, yet live.
+    CandidateUnlock::factory()->create([
+        'employer_profile_id' => $employer->id,
+        'jobseeker_profile_id' => $profile->id,
+        'expires_at' => now()->addYear(),
+        'revoked_at' => now(),
+    ]);
+
+    app(IssueCandidateUnlock::class)->handle($employer, $profile, now()->addMonth());
+
+    $unlock = CandidateUnlock::query()->firstOrFail();
+
+    expect($unlock->revoked_at)->toBeNull()
+        // Shorter term declined: longest still wins.
+        ->and(now()->diffInDays($unlock->expires_at))->toBeGreaterThan(300);
+});
+
 test('unlocks:expire does not reprocess a row it has already swept', function () {
     $employer = EmployerProfile::factory()->create();
     $profile = JobseekerProfile::factory()->create();

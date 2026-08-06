@@ -16,18 +16,31 @@ class JobPublishController extends Controller
      *
      * Its own endpoint because publishing is the only moment the expiry clock
      * may be stamped — an ordinary edit must never extend a running ad.
+     *
+     * Idempotent rather than guarded: PublishJob refuses to restamp a running
+     * window itself, so a double-clicked Publish button is a no-op worth
+     * reporting rather than an error. Returning 409 here would also collide
+     * with the status Inertia reserves for its own redirects, surfacing a raw
+     * error page in a modal.
      */
     public function store(Job $job, PublishJob $publishJob): RedirectResponse
     {
         Gate::authorize('update', $job);
 
-        // Ownership is not the whole rule: re-posting this endpoint against an
-        // ad that is already live would restamp published_at and push the
-        // expiry another 45 days out, which is exactly what routing publishing
-        // away from the edit form was meant to prevent.
-        abort_if($job->isPublished(), 409);
+        $wasLive = $job->isPublished();
 
         $publishJob->handle($job);
+
+        if ($wasLive) {
+            Inertia::flash('toast', [
+                'type' => 'info',
+                'message' => __('This job is already live. It expires on :date.', [
+                    'date' => $job->expires_at?->toFormattedDateString(),
+                ]),
+            ]);
+
+            return to_route('employer.jobs.index');
+        }
 
         Inertia::flash('toast', [
             'type' => 'success',

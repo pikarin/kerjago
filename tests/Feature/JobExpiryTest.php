@@ -95,13 +95,47 @@ test('a draft cannot be pushed live through the edit form', function () {
     expect($job->refresh()->status)->toBe(JobStatus::Draft);
 });
 
-test('publishing an already-live ad is refused so the clock cannot be pushed out', function () {
+test('publishing an already-live ad is a no-op, not a second window', function () {
     $job = Job::factory()->create();
     $originalExpiry = $job->expires_at;
 
     $this->actingAs($job->employerProfile->user)
         ->post(route('employer.jobs.publish', $job))
-        ->assertConflict();
+        ->assertRedirect();
+
+    expect($job->refresh()->expires_at?->toIso8601String())
+        ->toBe($originalExpiry?->toIso8601String());
+});
+
+/**
+ * The status column is editable and the timestamps are not, so taking a live ad
+ * back to Draft and publishing it again must not buy a fresh 45 days — it
+ * resumes on the days it had left.
+ */
+test('a draft round trip does not restamp a running window', function () {
+    $job = Job::factory()->create(['expires_at' => now()->addDays(10)]);
+    $originalExpiry = $job->expires_at;
+
+    $job->update(['status' => 'draft']);
+
+    $this->actingAs($job->employerProfile->user)
+        ->post(route('employer.jobs.publish', $job))
+        ->assertRedirect();
+
+    $job->refresh();
+
+    expect($job->status)->toBe(JobStatus::Active)
+        ->and($job->expires_at?->toIso8601String())->toBe($originalExpiry?->toIso8601String());
+});
+
+test('a closed round trip does not restamp a running window either', function () {
+    $job = Job::factory()->create(['expires_at' => now()->addDays(3)]);
+    $originalExpiry = $job->expires_at;
+
+    $job->update(['status' => 'closed']);
+
+    $this->actingAs($job->employerProfile->user)
+        ->post(route('employer.jobs.publish', $job));
 
     expect($job->refresh()->expires_at?->toIso8601String())
         ->toBe($originalExpiry?->toIso8601String());
