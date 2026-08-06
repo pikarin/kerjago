@@ -21,6 +21,12 @@ class JobPublishController extends Controller
     {
         Gate::authorize('update', $job);
 
+        // Ownership is not the whole rule: re-posting this endpoint against an
+        // ad that is already live would restamp published_at and push the
+        // expiry another 45 days out, which is exactly what routing publishing
+        // away from the edit form was meant to prevent.
+        abort_if($job->isPublished(), 409);
+
         $publishJob->handle($job);
 
         Inertia::flash('toast', [

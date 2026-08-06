@@ -20,6 +20,11 @@ return new class extends Migration
             $table->foreignUlid('job_id')->nullable()->constrained()->nullOnDelete();
             $table->string('source');
             $table->timestamp('expires_at');
+            // Stamped by unlocks:expire once it has taken the employer out of
+            // the pair's threads, so the sweep never reprocesses the same row.
+            // Not a second source of truth for access — masking reads
+            // expires_at alone.
+            $table->timestamp('revoked_at')->nullable();
             $table->timestamps();
 
             // One unlock per employer/candidate pair, enforced by the database
@@ -29,7 +34,8 @@ return new class extends Migration
             $table->index(['employer_profile_id', 'expires_at']);
             // The quota count for one job, and the unlocks:expire sweep.
             $table->index('job_id');
-            $table->index('expires_at');
+            // The sweep's working set: expired but not yet revoked.
+            $table->index(['revoked_at', 'expires_at']);
         });
     }
 

@@ -2,11 +2,13 @@
 
 use App\Actions\Applications\ApplyToJob;
 use App\Actions\Jobs\PublishJob;
+use App\Actions\Unlocks\IssueCandidateUnlock;
 use App\Enums\UnlockSource;
 use App\Models\CandidateUnlock;
 use App\Models\EmployerProfile;
 use App\Models\Job;
 use App\Models\JobseekerProfile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -132,6 +134,45 @@ test('applying to an expired job is refused and issues no unlock', function () {
         ->toThrow(ValidationException::class);
 
     expect(CandidateUnlock::query()->count())->toBe(0);
+});
+
+test('a renewed unlock clears the revocation so the next expiry is swept again', function () {
+    $employer = EmployerProfile::factory()->create();
+    $profile = JobseekerProfile::factory()->create();
+
+    CandidateUnlock::factory()->expired()->create([
+        'employer_profile_id' => $employer->id,
+        'jobseeker_profile_id' => $profile->id,
+    ]);
+
+    $this->artisan('unlocks:expire')->assertSuccessful();
+    expect(CandidateUnlock::query()->firstOrFail()->revoked_at)->not->toBeNull();
+
+    app(IssueCandidateUnlock::class)->handle($employer, $profile, now()->addYear());
+
+    expect(CandidateUnlock::query()->firstOrFail()->revoked_at)->toBeNull();
+});
+
+test('unlocks:expire does not reprocess a row it has already swept', function () {
+    $employer = EmployerProfile::factory()->create();
+    $profile = JobseekerProfile::factory()->create();
+
+    CandidateUnlock::factory()->expired()->create([
+        'employer_profile_id' => $employer->id,
+        'jobseeker_profile_id' => $profile->id,
+    ]);
+
+    $this->artisan('unlocks:expire')->assertSuccessful();
+
+    $queries = 0;
+    DB::listen(function () use (&$queries) {
+        $queries++;
+    });
+
+    $this->artisan('unlocks:expire')->assertSuccessful();
+
+    // One SELECT to find nothing to do, not three per historical row.
+    expect($queries)->toBeLessThanOrEqual(2);
 });
 
 test('unlocks:expire leaves the rows in place so slots stay spent', function () {

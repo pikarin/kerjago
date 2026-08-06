@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $job_id
  * @property UnlockSource $source
  * @property Carbon $expires_at
+ * @property Carbon|null $revoked_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read EmployerProfile $employerProfile
@@ -82,6 +83,7 @@ class CandidateUnlock extends Model
         return [
             'source' => UnlockSource::class,
             'expires_at' => 'datetime',
+            'revoked_at' => 'datetime',
         ];
     }
 }

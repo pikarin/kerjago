@@ -5,9 +5,9 @@ namespace App\Console\Commands;
 use App\Chat\Actions\RevokeParticipant;
 use App\Chat\Models\Conversation;
 use App\Enums\ChatContextType;
-use App\Enums\ConversationKind;
 use App\Models\Application;
 use App\Models\CandidateUnlock;
+use App\Support\Chat\ColdOutreachKey;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -33,6 +33,10 @@ class ExpireCandidateUnlocks extends Command
 
         CandidateUnlock::query()
             ->where('expires_at', '<=', now())
+            // Without this the sweep would re-examine every unlock that has
+            // ever expired, on every run, forever — three queries apiece for
+            // work already done.
+            ->whereNull('revoked_at')
             ->with(['employerProfile', 'jobseekerProfile'])
             ->chunkById(100, function (Collection $unlocks) use ($revokeParticipant, &$revoked): void {
                 /** @var Collection<int, CandidateUnlock> $unlocks */
@@ -41,6 +45,10 @@ class ExpireCandidateUnlocks extends Command
                         $unlock->employerProfile->user_id,
                         $this->conversationIdsFor($unlock),
                     );
+
+                    // The row itself stays: a slot is spent when it is issued,
+                    // and deleting the evidence would hand it back.
+                    $unlock->forceFill(['revoked_at' => now()])->save();
                 }
             });
 
@@ -62,13 +70,9 @@ class ExpireCandidateUnlocks extends Command
             ->all());
 
         // Cold outreach carries no context, so it is found by the unique key
-        // StartColdOutreach composes for the pair.
-        $coldOutreachKey = sprintf(
-            '%s:%s:%s',
-            ConversationKind::ColdOutreach->value,
-            $unlock->employerProfile->user_id,
-            $unlock->jobseekerProfile->user_id,
-        );
+        // StartColdOutreach composes for the pair. Must stay in step with
+        // IssueCandidateUnlock, which restores by the same key.
+        $coldOutreachKey = ColdOutreachKey::for($unlock->employerProfile, $unlock->jobseekerProfile);
 
         return array_values(Conversation::query()
             ->where(fn (Builder $query) => $query

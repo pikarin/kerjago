@@ -9,6 +9,7 @@ use App\Chat\Models\Conversation;
 use App\Enums\ConversationKind;
 use App\Models\JobseekerProfile;
 use App\Models\User;
+use App\Support\Chat\ColdOutreachKey;
 use Illuminate\Auth\Access\AuthorizationException;
 
 class StartColdOutreach
@@ -46,12 +47,7 @@ class StartColdOutreach
             kind: ConversationKind::ColdOutreach->value,
             createdByParticipantId: $employer->id,
             participantIds: [$employer->id, $target->user_id],
-            uniqueKey: sprintf(
-                '%s:%s:%s',
-                ConversationKind::ColdOutreach->value,
-                $employer->id,
-                $target->user_id,
-            ),
+            uniqueKey: ColdOutreachKey::forUsers($employer->id, $target->user_id),
         ));
     }
 }

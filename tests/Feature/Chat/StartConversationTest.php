@@ -2,6 +2,7 @@
 
 use App\Actions\Chat\StartColdOutreach;
 use App\Actions\Chat\StartInternalConversation;
+use App\Actions\Unlocks\IssueCandidateUnlock;
 use App\Chat\Models\Conversation;
 use App\Enums\ConversationKind;
 use App\Models\CandidateUnlock;
@@ -85,6 +86,28 @@ test('cold outreach is refused for a locked candidate', function () {
         ->toThrow(AuthorizationException::class);
 
     expect(Conversation::query()->count())->toBe(0);
+});
+
+/**
+ * The sweep revokes the cold-outreach thread as well as application threads,
+ * so re-unlocking has to restore both. StartColdOutreach is idempotent and
+ * hands back the existing row, so a thread left revoked would 403 forever with
+ * no way to recreate it.
+ */
+test('re-unlocking restores a revoked cold-outreach thread', function () {
+    $employer = EmployerProfile::factory()->create();
+    $target = unlockedTarget($employer);
+
+    $conversation = app(StartColdOutreach::class)->handle($employer->user, $target);
+
+    CandidateUnlock::query()->update(['expires_at' => now()->subDay()]);
+    $this->artisan('unlocks:expire')->assertSuccessful();
+
+    expect($conversation->fresh()?->hasParticipant($employer->user_id))->toBeFalse();
+
+    app(IssueCandidateUnlock::class)->handle($employer, $target, now()->addYear());
+
+    expect($conversation->fresh()?->hasParticipant($employer->user_id))->toBeTrue();
 });
 
 test('cold outreach is refused once the unlock expires', function () {

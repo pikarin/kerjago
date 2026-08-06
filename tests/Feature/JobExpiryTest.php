@@ -44,6 +44,80 @@ test('editing a live job does not extend its window', function () {
     expect($job->refresh()->expires_at?->toIso8601String())->toBe($originalExpiry?->toIso8601String());
 });
 
+test('a live job can be edited without being taken offline first', function () {
+    $job = Job::factory()->create();
+
+    $this->actingAs($job->employerProfile->user)
+        ->put(route('employer.jobs.update', $job), [
+            'title' => 'Retitled while live',
+            'description' => $job->description,
+            'skills' => $job->skills,
+            'location_country' => $job->location_country,
+            'location_city' => $job->location_city,
+            'salary_min' => $job->salary_min,
+            'salary_max' => $job->salary_max,
+            'currency' => $job->currency->value,
+            'employment_type' => $job->employment_type?->value,
+            'work_arrangement' => $job->work_arrangement?->value,
+            'experience_level' => $job->experience_level?->value,
+            'education_level' => $job->education_level?->value,
+            // The status it already has: a no-op, not a transition.
+            'status' => 'active',
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+
+    expect($job->refresh()->title)->toBe('Retitled while live')
+        ->and($job->status)->toBe(JobStatus::Active);
+});
+
+test('a draft cannot be pushed live through the edit form', function () {
+    $job = Job::factory()->draft()->create();
+
+    $this->actingAs($job->employerProfile->user)
+        ->put(route('employer.jobs.update', $job), [
+            'title' => $job->title,
+            'description' => $job->description,
+            'skills' => $job->skills,
+            'location_country' => $job->location_country,
+            'location_city' => $job->location_city,
+            'salary_min' => $job->salary_min,
+            'salary_max' => $job->salary_max,
+            'currency' => $job->currency->value,
+            'employment_type' => $job->employment_type?->value,
+            'work_arrangement' => $job->work_arrangement?->value,
+            'experience_level' => $job->experience_level?->value,
+            'education_level' => $job->education_level?->value,
+            'status' => 'active',
+        ])
+        ->assertSessionHasErrors('status');
+
+    expect($job->refresh()->status)->toBe(JobStatus::Draft);
+});
+
+test('publishing an already-live ad is refused so the clock cannot be pushed out', function () {
+    $job = Job::factory()->create();
+    $originalExpiry = $job->expires_at;
+
+    $this->actingAs($job->employerProfile->user)
+        ->post(route('employer.jobs.publish', $job))
+        ->assertConflict();
+
+    expect($job->refresh()->expires_at?->toIso8601String())
+        ->toBe($originalExpiry?->toIso8601String());
+});
+
+test('an expired ad can be re-published for a fresh window', function () {
+    $job = Job::factory()->expired()->create();
+
+    $this->actingAs($job->employerProfile->user)
+        ->post(route('employer.jobs.publish', $job))
+        ->assertRedirect();
+
+    expect($job->refresh()->status)->toBe(JobStatus::Active)
+        ->and($job->expires_at?->isFuture())->toBeTrue();
+});
+
 test('an expired ad is not viewable, not appliable and not indexed', function () {
     $job = Job::factory()->expired()->create();
 

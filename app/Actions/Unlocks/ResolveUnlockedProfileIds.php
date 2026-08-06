@@ -80,6 +80,19 @@ class ResolveUnlockedProfileIds
         return $this->handle($employerProfile, [$jobseekerProfileId]) !== [];
     }
 
+    /**
+     * Drop a memoized answer after the underlying permission changes.
+     *
+     * The memo caches "locked" as readily as "unlocked", so a request that
+     * checked a candidate before unlocking them would otherwise keep seeing the
+     * stale negative — and with a sync queue that request also runs the job
+     * that opens their conversation.
+     */
+    public function forget(EmployerProfile $employerProfile, string $jobseekerProfileId): void
+    {
+        unset($this->resolved[$this->key($employerProfile->id, $jobseekerProfileId)]);
+    }
+
     private function key(string $employerProfileId, string $jobseekerProfileId): string
     {
         return $employerProfileId.':'.$jobseekerProfileId;

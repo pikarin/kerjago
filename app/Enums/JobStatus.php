@@ -22,4 +22,21 @@ enum JobStatus: string
     {
         return [self::Draft, self::Closed];
     }
+
+    /**
+     * The statuses the form may set on a job that already exists.
+     *
+     * A job's *current* status is always allowed, or a live ad could not be
+     * edited at all without first being taken offline — re-sending the status
+     * it already has is a no-op, not a transition, so it cannot be used to
+     * publish or to extend the expiry clock.
+     *
+     * @return list<JobStatus>
+     */
+    public static function editableCasesFor(JobStatus $current): array
+    {
+        $cases = self::editableCases();
+
+        return in_array($current, $cases, true) ? $cases : [$current, ...$cases];
+    }
 }

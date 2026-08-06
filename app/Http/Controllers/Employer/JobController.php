@@ -119,7 +119,9 @@ class JobController extends Controller
             ],
             'countries' => Country::cases(),
             'currencies' => Currency::cases(),
-            'statuses' => JobStatus::editableCases(),
+            // Includes the job's current status, so editing a live ad does not
+            // force the employer to demote it first.
+            'statuses' => JobStatus::editableCasesFor($job->status),
             'employmentTypes' => EmploymentType::options(),
             'workArrangements' => WorkArrangement::options(),
             'experienceLevels' => ExperienceLevel::options(),
