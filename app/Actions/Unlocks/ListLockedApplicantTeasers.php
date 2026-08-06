@@ -34,7 +34,10 @@ class ListLockedApplicantTeasers
                 ->whereColumn('candidate_unlocks.jobseeker_profile_id', 'applications.jobseeker_profile_id')
                 ->where('candidate_unlocks.employer_profile_id', $employerProfile->id)
                 ->where('candidate_unlocks.expires_at', '>', now()))
+            // Tiebreak on the ULID, or which applicants survive the limit is
+            // undefined among rows sharing a timestamp.
             ->latest()
+            ->orderByDesc('id')
             ->limit($limit)
             ->get()
             ->map(fn (Application $application): array => [

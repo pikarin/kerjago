@@ -31,7 +31,12 @@ class JobApplicantsController extends Controller
 
         $applications = $job->applications()
             ->with(['jobseekerProfile.user:id,email'])
+            // ULIDs sort by creation, so the id is a stable tiebreak for
+            // applications sharing a timestamp. Without it the order of tied
+            // rows is undefined and a candidate can appear on two pages, or on
+            // neither.
             ->latest()
+            ->orderByDesc('id')
             ->paginate(15);
 
         $unlocked = $resolveUnlockedProfileIds->handle(

@@ -9,9 +9,12 @@ use App\Models\JobseekerProfile;
 test('the applicant list masks everyone past the tenth and reports the quota', function () {
     $job = Job::factory()->create();
 
+    // A second apart each, so "newest first" is a fact about the data rather
+    // than about how the database happened to break a timestamp tie.
     foreach (JobseekerProfile::factory()->count(11)->create() as $index => $profile) {
         $profile->update(['full_name' => "Applicant Number{$index}"]);
         app(ApplyToJob::class)->handle($profile->fresh(), $job->fresh());
+        $this->travel(1)->seconds();
     }
 
     $this->actingAs($job->employerProfile->user)
