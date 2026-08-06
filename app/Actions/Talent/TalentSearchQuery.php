@@ -17,14 +17,14 @@ final class TalentSearchQuery
      * Text fields matched by a free-text query, in descending relevance
      * order, plus the embedding field that turns the search hybrid.
      */
-    private const string QUERY_BY = 'preferred_job_title,experience_titles,skills,preferred_location,location,embedding';
+    private const string QUERY_BY = 'preferred_job_title,experience_titles,skills,summary,current_company,education_institutions,preferred_location,location,embedding';
 
     /**
      * One weight per QUERY_BY field — Typesense rejects the request when the
      * counts differ. The embedding weight is ignored (the vector leg is
      * fused via rank fusion) but a placeholder is still required.
      */
-    private const string QUERY_BY_WEIGHTS = '8,6,4,2,1,1';
+    private const string QUERY_BY_WEIGHTS = '10,8,6,3,3,2,1,1,1';
 
     /**
      * Facet request param => Typesense document field.
@@ -38,7 +38,7 @@ final class TalentSearchQuery
         'city' => 'city',
         'preferred_country' => 'preferred_country',
         'preferred_city' => 'preferred_city',
-        'languages' => 'languages',
+        'languages' => 'language_codes',
         'education_level' => 'education_level',
         'gender' => 'gender',
     ];

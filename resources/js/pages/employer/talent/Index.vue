@@ -30,11 +30,11 @@ import type {
     FacetOption,
     Facets,
     Paginated,
-    TalentProfile,
+    TalentSummary,
 } from '@/types/kerjago';
 
 const props = defineProps<{
-    profiles: Paginated<TalentProfile>;
+    profiles: Paginated<TalentSummary>;
     filters: {
         q?: string | null;
         preferred_job_title?: string[] | null;

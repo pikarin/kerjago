@@ -1,6 +1,13 @@
 <?php
 
 use App\Enums\Availability;
+use App\Enums\Currency;
+use App\Enums\EducationLevel;
+use App\Enums\Language;
+use App\Enums\LanguageProficiency;
+use App\Enums\SalaryPeriod;
+use App\Models\Education;
+use App\Models\JobseekerLanguage;
 use App\Models\JobseekerProfile;
 use App\Models\User;
 use App\Models\WorkExperience;
@@ -83,9 +90,21 @@ test('jobseeker can save preference fields', function () {
         'preferred_country' => 'SG',
         'preferred_city' => 'Singapore',
         'availability' => 'two_weeks',
-        'languages' => ['id', 'en'],
+        'languages' => [
+            ['language' => 'id', 'proficiency' => 'native'],
+            ['language' => 'en', 'proficiency' => 'fluent'],
+        ],
         'gender' => 'female',
-        'education_level' => 'bachelor',
+        'summary' => 'Ten years shipping Laravel APIs.',
+        'current_company' => 'Warung Tech',
+        'date_of_birth' => '1995-04-12',
+        'expected_salary_min' => 15_000_000,
+        'expected_salary_max' => 22_000_000,
+        'expected_salary_currency' => 'IDR',
+        'expected_salary_period' => 'monthly',
+        'educations' => [
+            ['institution' => 'Universitas Indonesia', 'field_of_study' => 'Computer Science', 'level' => 'bachelor'],
+        ],
     ])->assertRedirect(route('jobseeker.profile.edit', absolute: false));
 
     $profile = JobseekerProfile::query()->whereBelongsTo($user)->firstOrFail();
@@ -93,7 +112,60 @@ test('jobseeker can save preference fields', function () {
     expect($profile->preferred_job_title)->toBe('Engineering Manager')
         ->and($profile->preferred_country)->toBe('SG')
         ->and($profile->availability)->toBe(Availability::TwoWeeks)
-        ->and($profile->languages)->toBe(['id', 'en']);
+        ->and($profile->summary)->toBe('Ten years shipping Laravel APIs.')
+        ->and($profile->current_company)->toBe('Warung Tech')
+        ->and($profile->expected_salary_min)->toBe(15_000_000)
+        ->and($profile->expected_salary_currency)->toBe(Currency::Idr)
+        ->and($profile->expected_salary_period)->toBe(SalaryPeriod::Monthly)
+        ->and($profile->languages->pluck('language')->all())->toBe([Language::Indonesian, Language::English])
+        ->and($profile->languages->pluck('proficiency')->all())->toBe([LanguageProficiency::Native, LanguageProficiency::Fluent])
+        ->and($profile->educations->pluck('institution')->all())->toBe(['Universitas Indonesia'])
+        ->and($profile->highestEducationLevel())->toBe(EducationLevel::Bachelor);
+});
+
+test('age is derived from the birth date rather than stored', function () {
+    $profile = JobseekerProfile::factory()->create(['date_of_birth' => now()->subYears(30)->subMonths(2)]);
+
+    expect($profile->age())->toBe(30)
+        ->and(JobseekerProfile::factory()->create(['date_of_birth' => null])->age())->toBeNull();
+});
+
+test('the highest education level wins across multiple degrees', function () {
+    $profile = JobseekerProfile::factory()->create();
+
+    Education::factory()->for($profile, 'jobseekerProfile')->create(['level' => EducationLevel::Bachelor]);
+    Education::factory()->for($profile, 'jobseekerProfile')->create(['level' => EducationLevel::HighSchool]);
+    Education::factory()->for($profile, 'jobseekerProfile')->create(['level' => null]);
+
+    expect($profile->refresh()->highestEducationLevel())->toBe(EducationLevel::Bachelor);
+});
+
+test('educations and languages are created, updated, and deleted from the submitted list', function () {
+    $user = User::factory()->jobseeker()->create();
+    $profile = JobseekerProfile::factory()->for($user)->create();
+    $keptEducation = Education::factory()->for($profile, 'jobseekerProfile')->create(['institution' => 'Sekolah Lama']);
+    $removedEducation = Education::factory()->for($profile, 'jobseekerProfile')->create(['institution' => 'Kursus Singkat']);
+    $removedLanguage = JobseekerLanguage::factory()->for($profile, 'jobseekerProfile')->create(['language' => Language::Thai]);
+
+    $this->actingAs($user)->put(route('jobseeker.profile.update'), [
+        'full_name' => $profile->full_name,
+        'current_title' => $profile->current_title,
+        'skills' => $profile->skills,
+        'experience_years' => $profile->experience_years,
+        'country' => $profile->country,
+        'city' => $profile->city,
+        'educations' => [
+            ['id' => $keptEducation->id, 'institution' => 'Universiti Malaya', 'level' => 'master'],
+        ],
+        'languages' => [
+            ['language' => 'en', 'proficiency' => 'good'],
+        ],
+    ])->assertRedirect(route('jobseeker.profile.edit', absolute: false));
+
+    expect($keptEducation->refresh()->institution)->toBe('Universiti Malaya')
+        ->and(Education::query()->find($removedEducation->id))->toBeNull()
+        ->and(JobseekerLanguage::query()->find($removedLanguage->id))->toBeNull()
+        ->and($profile->refresh()->languages->pluck('language')->all())->toBe([Language::English]);
 });
 
 test('a profile still saves without any of the new optional fields', function () {
@@ -184,7 +256,25 @@ test('profile validation rejects bad input', function (array $overrides, string 
     'invalid phone' => [['phone' => 'not-a-phone'], 'phone'],
     'negative experience' => [['experience_years' => -1], 'experience_years'],
     'unknown availability' => [['availability' => 'someday'], 'availability'],
-    'unknown language' => [['languages' => ['fr']], 'languages.0'],
+    'unknown language' => [['languages' => [['language' => 'fr', 'proficiency' => 'good']]], 'languages.0.language'],
+    'duplicate language' => [
+        ['languages' => [
+            ['language' => 'en', 'proficiency' => 'good'],
+            ['language' => 'en', 'proficiency' => 'native'],
+        ]],
+        'languages.1.language',
+    ],
+    'unknown proficiency' => [['languages' => [['language' => 'en', 'proficiency' => 'perfect']]], 'languages.0.proficiency'],
+    'birth date too recent' => [['date_of_birth' => now()->subYears(10)->toDateString()], 'date_of_birth'],
+    'salary max below min' => [
+        ['expected_salary_min' => 20_000_000, 'expected_salary_max' => 5_000_000, 'expected_salary_currency' => 'IDR'],
+        'expected_salary_max',
+    ],
+    'salary without a currency' => [['expected_salary_min' => 20_000_000], 'expected_salary_currency'],
+    'education missing institution' => [
+        ['educations' => [['institution' => '', 'level' => 'bachelor']]],
+        'educations.0.institution',
+    ],
     'experience missing title' => [
         ['experiences' => [['job_title' => '', 'company_name' => 'Co', 'start_date' => '2020-01-01']]],
         'experiences.0.job_title',

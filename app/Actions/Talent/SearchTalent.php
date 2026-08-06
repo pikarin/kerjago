@@ -79,7 +79,7 @@ class SearchTalent
         }
 
         $profiles = JobseekerProfile::query()
-            ->with('workExperiences')
+            ->with(['workExperiences', 'educations', 'languages'])
             ->findMany($ids)
             ->sortBy(fn (JobseekerProfile $profile) => array_search($profile->id, $ids, true))
             ->values();
@@ -102,15 +102,20 @@ class SearchTalent
     private function searchDatabase(array $filters, int $perPage): LengthAwarePaginator
     {
         return JobseekerProfile::query()
-            ->with('workExperiences')
+            ->with(['workExperiences', 'educations', 'languages'])
             ->when($filters['q'] ?? null, function ($query, string $keyword) {
                 $query->where(function ($query) use ($keyword) {
                     $query->whereLike('full_name', "%{$keyword}%", caseSensitive: false)
                         ->orWhereLike('current_title', "%{$keyword}%", caseSensitive: false)
                         ->orWhereLike('preferred_job_title', "%{$keyword}%", caseSensitive: false)
+                        ->orWhereLike('current_company', "%{$keyword}%", caseSensitive: false)
+                        ->orWhereLike('summary', "%{$keyword}%", caseSensitive: false)
                         ->orWhereRaw('skills::text ilike ?', ["%{$keyword}%"])
                         ->orWhereHas('workExperiences', function ($query) use ($keyword) {
                             $query->whereLike('job_title', "%{$keyword}%", caseSensitive: false);
+                        })
+                        ->orWhereHas('educations', function ($query) use ($keyword) {
+                            $query->whereLike('institution', "%{$keyword}%", caseSensitive: false);
                         });
                 });
             })
@@ -121,7 +126,14 @@ class SearchTalent
             ->when($filters['preferred_city'] ?? null, fn ($query, array $values) => $query->whereIn('preferred_city', $values))
             ->when($filters['availability'] ?? null, fn ($query, array $values) => $query->whereIn('availability', $values))
             ->when($filters['gender'] ?? null, fn ($query, array $values) => $query->whereIn('gender', $values))
-            ->when($filters['education_level'] ?? null, fn ($query, array $values) => $query->whereIn('education_level', $values))
+            // The index facets on the profile's *highest* level; expressing
+            // that in SQL needs a rank join, so the fallback matches any
+            // education row at a selected level. Slightly broader, and only
+            // ever seen while Typesense is down.
+            ->when($filters['education_level'] ?? null, fn ($query, array $values) => $query->whereHas(
+                'educations',
+                fn (Builder $query) => $query->whereIn('level', $values),
+            ))
             ->when($filters['skills'] ?? null, function ($query, array $skills) {
                 $query->where(function ($query) use ($skills) {
                     foreach ($skills as $skill) {
@@ -129,13 +141,10 @@ class SearchTalent
                     }
                 });
             })
-            ->when($filters['languages'] ?? null, function ($query, array $languages) {
-                $query->where(function ($query) use ($languages) {
-                    foreach ($languages as $language) {
-                        $query->orWhereJsonContains('languages', $language);
-                    }
-                });
-            })
+            ->when($filters['languages'] ?? null, fn ($query, array $values) => $query->whereHas(
+                'languages',
+                fn (Builder $query) => $query->whereIn('language', $values),
+            ))
             ->when($filters['experience_band'] ?? null, fn ($query, array $bands) => $this->applyExperienceBands($query, $bands))
             ->when($filters['experience_min'] ?? null, fn ($query, int $years) => $query->where('experience_years', '>=', $years))
             ->latest()

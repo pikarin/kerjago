@@ -40,8 +40,8 @@ test('options runs weighted hybrid search for keyword queries', function () {
     $options = TalentSearchQuery::options(['q' => 'chef'], 1, 12);
 
     expect($options['vector_query'])->toBe('embedding:([], distance_threshold: 0.68)')
-        ->and($options['query_by'])->toBe('preferred_job_title,experience_titles,skills,preferred_location,location,embedding')
-        ->and($options['query_by_weights'])->toBe('8,6,4,2,1,1')
+        ->and($options['query_by'])->toBe('preferred_job_title,experience_titles,skills,summary,current_company,education_institutions,preferred_location,location,embedding')
+        ->and($options['query_by_weights'])->toBe('10,8,6,3,3,2,1,1,1')
         ->and($options)->not->toHaveKey('sort_by')
         ->and($options['page'])->toBe(1)
         ->and($options['per_page'])->toBe(12);

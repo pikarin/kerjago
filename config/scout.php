@@ -251,28 +251,38 @@ return [
                         ['name' => 'preferred_job_title', 'type' => 'string', 'facet' => true],
                         ['name' => 'experience_titles', 'type' => 'string[]'],
                         ['name' => 'skills', 'type' => 'string[]', 'facet' => true],
+                        ['name' => 'summary', 'type' => 'string'],
+                        ['name' => 'current_company', 'type' => 'string'],
+                        ['name' => 'education_institutions', 'type' => 'string[]'],
                         ['name' => 'preferred_location', 'type' => 'string'],
                         ['name' => 'location', 'type' => 'string'],
                         ['name' => 'country', 'type' => 'string', 'facet' => true],
                         ['name' => 'city', 'type' => 'string', 'facet' => true],
+                        ['name' => 'state', 'type' => 'string', 'facet' => true, 'optional' => true],
                         ['name' => 'preferred_country', 'type' => 'string', 'facet' => true, 'optional' => true],
+                        ['name' => 'preferred_state', 'type' => 'string', 'facet' => true, 'optional' => true],
                         ['name' => 'preferred_city', 'type' => 'string', 'facet' => true, 'optional' => true],
                         ['name' => 'availability', 'type' => 'string', 'facet' => true, 'optional' => true],
                         ['name' => 'gender', 'type' => 'string', 'facet' => true, 'optional' => true],
                         ['name' => 'education_level', 'type' => 'string', 'facet' => true, 'optional' => true],
-                        ['name' => 'languages', 'type' => 'string[]', 'facet' => true, 'optional' => true],
+                        ['name' => 'language_codes', 'type' => 'string[]', 'facet' => true],
+                        ['name' => 'expected_salary_min', 'type' => 'int64', 'optional' => true],
+                        ['name' => 'expected_salary_max', 'type' => 'int64', 'optional' => true],
+                        ['name' => 'expected_salary_currency', 'type' => 'string', 'facet' => true, 'optional' => true],
                         ['name' => 'experience_years', 'type' => 'int32'],
                         ['name' => 'experience_band', 'type' => 'string', 'facet' => true],
+                        ['name' => 'profile_views_count', 'type' => 'int32'],
+                        ['name' => 'last_active_at', 'type' => 'int64', 'optional' => true],
                         ['name' => 'created_at', 'type' => 'int64'],
                         [
-                            // Generated server-side by Typesense. The five
-                            // source fields are always present in the document
+                            // Generated server-side by Typesense. Every source
+                            // field is always present in the document
                             // (JobseekerProfile::toSearchableArray applies
                             // fallbacks instead of null-filtering them).
                             'name' => 'embedding',
                             'type' => 'float[]',
                             'embed' => [
-                                'from' => ['preferred_job_title', 'experience_titles', 'skills', 'preferred_location', 'location'],
+                                'from' => ['preferred_job_title', 'experience_titles', 'skills', 'summary', 'preferred_location', 'location'],
                                 'model_config' => ['model_name' => 'ts/all-MiniLM-L12-v2'],
                             ],
                         ],
@@ -280,7 +290,7 @@ return [
                     'default_sorting_field' => 'created_at',
                 ],
                 'search-parameters' => [
-                    'query_by' => 'preferred_job_title,experience_titles,skills,preferred_location,location,embedding',
+                    'query_by' => 'preferred_job_title,experience_titles,skills,summary,current_company,education_institutions,preferred_location,location,embedding',
                 ],
             ],
         ],

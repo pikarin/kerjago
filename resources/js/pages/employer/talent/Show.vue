@@ -7,13 +7,14 @@ import {
     Languages,
     MapPin,
     Target,
+    Wallet,
 } from '@lucide/vue';
 import Heading from '@/components/Heading.vue';
 import SkillTags from '@/components/SkillTags.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/employer/talent';
-import { countryLabel } from '@/types/kerjago';
+import { countryLabel, formatSalaryRange } from '@/types/kerjago';
 import type { TalentDetail } from '@/types/kerjago';
 
 defineProps<{
@@ -46,6 +47,19 @@ const EDUCATION_LABELS: Record<string, string> = {
     doctorate: 'Doctorate',
 };
 
+const PERIOD_LABELS: Record<string, string> = {
+    monthly: 'per month',
+    yearly: 'per year',
+    hourly: 'per hour',
+};
+
+const PROFICIENCY_LABELS: Record<string, string> = {
+    basic: 'Basic',
+    good: 'Good',
+    fluent: 'Fluent',
+    native: 'Native',
+};
+
 const LANGUAGE_LABELS: Record<string, string> = {
     id: 'Indonesian',
     en: 'English',
@@ -71,8 +85,16 @@ function formatMonth(value: string): string {
 
     <div class="grid max-w-3xl gap-6 p-4">
         <Heading
-            :title="profile.full_name"
-            :description="profile.current_title"
+            :title="
+                [profile.full_name, profile.age ? `${profile.age}` : null]
+                    .filter(Boolean)
+                    .join(', ')
+            "
+            :description="
+                profile.current_company
+                    ? `${profile.current_title} at ${profile.current_company}`
+                    : profile.current_title
+            "
         />
 
         <Card>
@@ -80,6 +102,10 @@ function formatMonth(value: string): string {
                 <CardTitle class="text-base">Candidate details</CardTitle>
             </CardHeader>
             <CardContent class="grid gap-4">
+                <p v-if="profile.summary" class="text-sm">
+                    {{ profile.summary }}
+                </p>
+
                 <div class="grid gap-2 text-sm text-muted-foreground">
                     <p
                         v-if="profile.preferred_job_title"
@@ -114,7 +140,35 @@ function formatMonth(value: string): string {
                     </p>
                     <p class="flex items-center gap-2">
                         <MapPin class="size-4" />
-                        {{ profile.city }}, {{ countryLabel(profile.country) }}
+                        {{
+                            [
+                                profile.city,
+                                profile.state,
+                                countryLabel(profile.country),
+                            ]
+                                .filter(Boolean)
+                                .join(', ')
+                        }}
+                    </p>
+                    <p
+                        v-if="
+                            profile.expected_salary_min !== null &&
+                            profile.expected_salary_max !== null &&
+                            profile.expected_salary_currency
+                        "
+                        class="flex items-center gap-2"
+                    >
+                        <Wallet class="size-4" />
+                        {{
+                            formatSalaryRange(
+                                profile.expected_salary_min,
+                                profile.expected_salary_max,
+                                profile.expected_salary_currency,
+                            )
+                        }}
+                        <span v-if="profile.expected_salary_period">
+                            {{ PERIOD_LABELS[profile.expected_salary_period] }}
+                        </span>
                     </p>
                     <p
                         v-if="profile.availability"
@@ -131,13 +185,16 @@ function formatMonth(value: string): string {
                         {{ EDUCATION_LABELS[profile.education_level] }}
                     </p>
                     <p
-                        v-if="profile.languages && profile.languages.length > 0"
+                        v-if="profile.languages.length > 0"
                         class="flex items-center gap-2"
                     >
                         <Languages class="size-4" />
                         {{
                             profile.languages
-                                .map((code) => LANGUAGE_LABELS[code] ?? code)
+                                .map(
+                                    (spoken) =>
+                                        `${LANGUAGE_LABELS[spoken.language] ?? spoken.language} (${PROFICIENCY_LABELS[spoken.proficiency] ?? spoken.proficiency})`,
+                                )
                                 .join(', ')
                         }}
                     </p>
@@ -179,6 +236,57 @@ function formatMonth(value: string): string {
                                 : experience.end_date
                                   ? formatMonth(experience.end_date)
                                   : ''
+                        }}
+                    </p>
+                    <p
+                        v-if="experience.description"
+                        class="mt-1 text-sm whitespace-pre-line text-muted-foreground"
+                    >
+                        {{ experience.description }}
+                    </p>
+                </div>
+            </CardContent>
+        </Card>
+
+        <Card v-if="profile.educations.length > 0">
+            <CardHeader>
+                <CardTitle class="text-base">Education</CardTitle>
+            </CardHeader>
+            <CardContent class="grid gap-4">
+                <div
+                    v-for="education in profile.educations"
+                    :key="education.id"
+                    class="grid gap-0.5 border-l-2 border-muted pl-4"
+                >
+                    <p class="text-sm font-medium">
+                        {{ education.institution }}
+                    </p>
+                    <p
+                        v-if="education.field_of_study || education.level"
+                        class="text-sm text-muted-foreground"
+                    >
+                        {{
+                            [
+                                education.field_of_study,
+                                education.level
+                                    ? EDUCATION_LABELS[education.level]
+                                    : null,
+                            ]
+                                .filter(Boolean)
+                                .join(' · ')
+                        }}
+                    </p>
+                    <p class="text-xs text-muted-foreground">
+                        {{
+                            education.start_date
+                                ? formatMonth(education.start_date)
+                                : 'Unspecified'
+                        }}
+                        –
+                        {{
+                            education.end_date
+                                ? formatMonth(education.end_date)
+                                : 'Unspecified'
                         }}
                     </p>
                 </div>

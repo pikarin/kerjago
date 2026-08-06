@@ -85,18 +85,44 @@ export type Gender = 'male' | 'female' | 'prefer_not_to_say';
 
 export type LanguageCode = 'id' | 'en' | 'ms' | 'zh' | 'th' | 'vi' | 'tl';
 
+export type LanguageProficiency = 'basic' | 'good' | 'fluent' | 'native';
+
+export type SalaryPeriod = 'monthly' | 'yearly' | 'hourly';
+
+export type SpokenLanguage = {
+    id?: string;
+    language: LanguageCode;
+    proficiency: LanguageProficiency;
+};
+
 export type TalentProfile = {
     id: string;
     full_name: string;
     current_title: string;
+    current_company: string | null;
     preferred_job_title: string | null;
+    summary: string | null;
     skills: string[];
     experience_years: number;
     country: CountryCode;
+    state: string | null;
     city: string;
     preferred_country: CountryCode | null;
+    preferred_state: string | null;
     preferred_city: string | null;
     availability: Availability | null;
+    gender: Gender | null;
+    // Derived from the birth date server-side; the birth date is never shared.
+    age: number | null;
+    education_level: EducationLevel | null;
+    expected_salary_min: number | null;
+    expected_salary_max: number | null;
+    expected_salary_currency: CurrencyCode | null;
+    expected_salary_period: SalaryPeriod | null;
+    profile_views_count: number;
+    resume_downloads_count: number;
+    employer_actions_count: number;
+    last_active_at: string | null;
 };
 
 // Applicant cards may show contact details — phone is shared through an
@@ -116,16 +142,29 @@ export type WorkExperienceItem = {
     id: string;
     job_title: string;
     company_name: string;
+    description: string | null;
     start_date: string;
     end_date: string | null;
     is_current: boolean;
 };
 
+export type EducationItem = {
+    id: string;
+    institution: string;
+    field_of_study: string | null;
+    level: EducationLevel | null;
+    start_date: string | null;
+    end_date: string | null;
+};
+
+export type TalentSummary = TalentProfile & {
+    languages: SpokenLanguage[];
+};
+
 export type TalentDetail = TalentProfile & {
-    languages: LanguageCode[] | null;
-    gender: Gender | null;
-    education_level: EducationLevel | null;
+    languages: SpokenLanguage[];
     work_experiences: WorkExperienceItem[];
+    educations: EducationItem[];
 };
 
 export const COUNTRY_LABELS: Record<CountryCode, string> = {
