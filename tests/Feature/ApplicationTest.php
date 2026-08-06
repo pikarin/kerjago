@@ -2,6 +2,7 @@
 
 use App\Enums\ApplicationStatus;
 use App\Models\Application;
+use App\Models\CandidateUnlock;
 use App\Models\EmployerProfile;
 use App\Models\Job;
 use App\Models\JobseekerProfile;
@@ -116,7 +117,33 @@ test('employer cannot update statuses on another employer\'s applicants', functi
     expect($application->refresh()->status)->toBe(ApplicationStatus::Submitted);
 });
 
-test('the job owner and the applicant can download the resume snapshot', function () {
+test('the applicant and an unlocking job owner can download the resume snapshot', function () {
+    Storage::fake('local');
+
+    $application = Application::factory()->create([
+        'resume_path' => UploadedFile::fake()->create('snapshot.pdf', 10)->store('applications', 'local'),
+    ]);
+
+    CandidateUnlock::factory()->create([
+        'employer_profile_id' => $application->job->employer_profile_id,
+        'jobseeker_profile_id' => $application->jobseeker_profile_id,
+    ]);
+
+    $this->actingAs($application->job->employerProfile->user)
+        ->get(route('applications.resume', $application))
+        ->assertOk();
+
+    $this->actingAs($application->jobseekerProfile->user)
+        ->get(route('applications.resume', $application))
+        ->assertOk();
+});
+
+/**
+ * The CV carries the name, email and phone the mask exists to withhold, so a
+ * locked applicant's snapshot stays shut even to the employer they applied to
+ * (ADR 0013).
+ */
+test('the job owner cannot download a locked applicant\'s resume snapshot', function () {
     Storage::fake('local');
 
     $application = Application::factory()->create([
@@ -125,8 +152,9 @@ test('the job owner and the applicant can download the resume snapshot', functio
 
     $this->actingAs($application->job->employerProfile->user)
         ->get(route('applications.resume', $application))
-        ->assertOk();
+        ->assertForbidden();
 
+    // The applicant's own access is unaffected.
     $this->actingAs($application->jobseekerProfile->user)
         ->get(route('applications.resume', $application))
         ->assertOk();

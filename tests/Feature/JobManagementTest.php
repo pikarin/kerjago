@@ -24,7 +24,9 @@ function validJobPayload(array $overrides = []): array
         'work_arrangement' => 'remote',
         'experience_level' => 'senior',
         'education_level' => 'bachelor',
-        'status' => 'active',
+        // The form can only save a draft or a closed ad; going live runs
+        // through the publish endpoint, which is what stamps the expiry clock.
+        'status' => 'draft',
         ...$overrides,
     ];
 }
@@ -44,8 +46,16 @@ test('employer with a profile can post a job', function () {
 
     $job = Job::query()->whereBelongsTo($profile)->firstOrFail();
 
-    expect($job->status)->toBe(JobStatus::Active)
+    expect($job->status)->toBe(JobStatus::Draft)
         ->and($job->salary_min)->toBe(15_000_000);
+});
+
+test('the form cannot put a job live directly', function () {
+    $profile = EmployerProfile::factory()->create();
+
+    $this->actingAs($profile->user)
+        ->post(route('employer.jobs.store'), validJobPayload(['status' => 'active']))
+        ->assertSessionHasErrors('status');
 });
 
 test('job validation rejects bad input', function (array $overrides, string $errorField) {

@@ -13,6 +13,13 @@ readonly class NewConversation
 {
     /**
      * @param  list<string>  $participantIds
+     * @param  list<string>  $withheldParticipantIds  Participants created with
+     *                                                access already revoked
+     *                                                (`left_at` set), for a host
+     *                                                that knows who belongs in a
+     *                                                thread before it knows they
+     *                                                may read it. Restored later
+     *                                                through RestoreParticipant.
      * @param  array<string, mixed>|null  $meta
      * @param  string|null  $uniqueKey  Set to enforce at-most-one conversation
      *                                  for this key (the host composes something
@@ -24,6 +31,7 @@ readonly class NewConversation
         public string $kind,
         public string $createdByParticipantId,
         public array $participantIds,
+        public array $withheldParticipantIds = [],
         public ?string $contextType = null,
         public ?string $contextId = null,
         public ?string $uniqueKey = null,

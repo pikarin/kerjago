@@ -79,7 +79,7 @@ class SearchTalent
         }
 
         $profiles = JobseekerProfile::query()
-            ->with(['workExperiences', 'educations', 'languages'])
+            ->with(['user:id,email', 'workExperiences', 'educations', 'languages'])
             ->findMany($ids)
             ->sortBy(fn (JobseekerProfile $profile) => array_search($profile->id, $ids, true))
             ->values();
@@ -102,7 +102,7 @@ class SearchTalent
     private function searchDatabase(array $filters, int $perPage): LengthAwarePaginator
     {
         return JobseekerProfile::query()
-            ->with(['workExperiences', 'educations', 'languages'])
+            ->with(['user:id,email', 'workExperiences', 'educations', 'languages'])
             ->when($filters['q'] ?? null, function ($query, string $keyword) {
                 $query->where(function ($query) use ($keyword) {
                     $query->whereLike('full_name', "%{$keyword}%", caseSensitive: false)

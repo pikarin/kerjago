@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Chat\EnsureApplicationConversation;
+use App\Actions\Unlocks\IssueCandidateUnlock;
 use App\Chat\Actions\OpenConversation;
 use App\Chat\Actions\PostSystemMessage;
 use App\Chat\Data\NewConversation;
@@ -13,6 +14,7 @@ use App\Enums\ConversationKind;
 use App\Jobs\AnnounceApplicationStatusChange;
 use App\Jobs\OpenApplicationConversation;
 use App\Models\Application;
+use App\Models\CandidateUnlock;
 use App\Models\EmployerProfile;
 use App\Models\Job;
 use App\Models\JobseekerProfile;
@@ -35,7 +37,7 @@ function applicationWithBothSides(): array
     return [$application, $employerProfile->user_id, $jobseekerProfile->user_id];
 }
 
-test('an application conversation joins the jobseeker and the employer', function () {
+test('an application conversation withholds the employer until they unlock', function () {
     [$application, $employerUserId, $jobseekerUserId] = applicationWithBothSides();
 
     $conversation = app(EnsureApplicationConversation::class)->handle($application);
@@ -43,8 +45,39 @@ test('an application conversation joins the jobseeker and the employer', functio
     expect($conversation->kind)->toBe(ConversationKind::Application->value)
         ->and($conversation->context_type)->toBe(ChatContextType::Application->value)
         ->and($conversation->context_id)->toBe($application->id)
-        ->and($conversation->hasParticipant($employerUserId))->toBeTrue()
+        // The jobseeker is in from the start — this thread is how they receive
+        // status system messages. The employer joins with left_at set, so the
+        // thread is absent from their inbox until an unlock (ADR 0013).
+        ->and($conversation->hasParticipant($jobseekerUserId))->toBeTrue()
+        ->and($conversation->hasParticipant($employerUserId))->toBeFalse();
+});
+
+test('an unlocked employer joins the application conversation outright', function () {
+    [$application, $employerUserId, $jobseekerUserId] = applicationWithBothSides();
+
+    CandidateUnlock::factory()->create([
+        'employer_profile_id' => $application->job->employer_profile_id,
+        'jobseeker_profile_id' => $application->jobseeker_profile_id,
+    ]);
+
+    $conversation = app(EnsureApplicationConversation::class)->handle($application);
+
+    expect($conversation->hasParticipant($employerUserId))->toBeTrue()
         ->and($conversation->hasParticipant($jobseekerUserId))->toBeTrue();
+});
+
+test('unlocking a candidate opens the thread that was withheld', function () {
+    [$application, $employerUserId] = applicationWithBothSides();
+
+    $conversation = app(EnsureApplicationConversation::class)->handle($application);
+
+    app(IssueCandidateUnlock::class)->handle(
+        $application->job->employerProfile,
+        $application->jobseekerProfile,
+        now()->addYear(),
+    );
+
+    expect($conversation->fresh()?->hasParticipant($employerUserId))->toBeTrue();
 });
 
 test('ensuring the conversation twice yields one conversation', function () {

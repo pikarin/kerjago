@@ -10,6 +10,7 @@ use App\Http\Controllers\Employer\ApplicationStatusController;
 use App\Http\Controllers\Employer\EmployerProfileController;
 use App\Http\Controllers\Employer\JobApplicantsController;
 use App\Http\Controllers\Employer\JobController as EmployerJobController;
+use App\Http\Controllers\Employer\JobPublishController;
 use App\Http\Controllers\Employer\TalentChatController;
 use App\Http\Controllers\Employer\TalentController;
 use App\Http\Controllers\HomeController;
@@ -68,14 +69,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('jobs/{job}/applicants', [JobApplicantsController::class, 'index'])
                 ->name('jobs.applicants');
 
+            // Publishing is not a status the edit form can send: it stamps the
+            // 45-day expiry clock, so it gets its own endpoint (ADR 0013).
+            Route::post('jobs/{job}/publish', [JobPublishController::class, 'store'])
+                ->name('jobs.publish');
+
             Route::patch('applications/{application}/status', [ApplicationStatusController::class, 'update'])
                 ->name('applications.status.update');
 
             Route::get('talent', [TalentController::class, 'index'])->name('talent.index');
             Route::get('talent/{jobseekerProfile}', [TalentController::class, 'show'])->name('talent.show');
 
-            // A volume ceiling only. Cold outreach is deliberately ungated as to
-            // WHO may be contacted (ADR 0008); this bounds how fast.
+            // Who may be contacted is gated by the Candidate Unlock check in
+            // StartColdOutreach (ADR 0013); this throttle bounds how fast.
             Route::post('talent/{jobseekerProfile}/chat', [TalentChatController::class, 'store'])
                 ->middleware('throttle:20,1')
                 ->name('talent.chat');

@@ -6,19 +6,31 @@ use App\Models\Education;
 use App\Models\JobseekerLanguage;
 use App\Models\JobseekerProfile;
 use App\Models\WorkExperience;
+use App\Support\Masking\Mask;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Full candidate profile for the employer talent detail page. Contact
- * details (phone, WhatsApp, email) and the raw birth date stay excluded
- * until quota/consent gating ships; resumes are only shared through
- * applications (ADR 0006). Age is exposed as a coarser derivative.
+ * Full candidate profile for the employer talent detail page.
+ *
+ * Locked candidates have their name, email and phone numbers masked before the
+ * response is built, so no raw value reaches the client (ADR 0013). Resumes are
+ * only ever shared through applications (ADR 0006) and only to an employer
+ * holding an active unlock — the CV carries every field the mask hides.
  *
  * @mixin JobseekerProfile
  */
 class TalentDetailResource extends JsonResource
 {
+    /**
+     * @param  bool  $isUnlocked  whether the viewing employer holds an active
+     *                            Candidate Unlock for this profile
+     */
+    public function __construct(JobseekerProfile $resource, private bool $isUnlocked = false)
+    {
+        parent::__construct($resource);
+    }
+
     /**
      * Transform the resource into an array.
      *
@@ -28,7 +40,11 @@ class TalentDetailResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'full_name' => $this->full_name,
+            'is_locked' => ! $this->isUnlocked,
+            'full_name' => $this->isUnlocked ? $this->full_name : Mask::name($this->full_name),
+            'email' => $this->isUnlocked ? $this->user->email : Mask::email($this->user->email),
+            'phone' => $this->isUnlocked ? $this->phone : Mask::phone($this->phone),
+            'whatsapp' => $this->isUnlocked ? $this->whatsapp : Mask::phone($this->whatsapp),
             'current_title' => $this->current_title,
             'current_company' => $this->current_company,
             'preferred_job_title' => $this->preferred_job_title,

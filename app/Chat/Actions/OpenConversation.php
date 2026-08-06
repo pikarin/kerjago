@@ -59,11 +59,16 @@ class OpenConversation
         ]);
 
         $now = now();
+        $withheld = array_flip($new->withheldParticipantIds);
 
-        foreach (array_unique($new->participantIds) as $participantId) {
+        foreach (array_unique([...$new->participantIds, ...$new->withheldParticipantIds]) as $participantId) {
             $conversation->participants()->create([
                 'participant_id' => $participantId,
                 'joined_at' => $now,
+                // A withheld participant is a member on paper only: `left_at`
+                // is what every gate in the module reads, so one column keeps
+                // the inbox, the authorizer and the presence channel agreeing.
+                'left_at' => isset($withheld[$participantId]) ? $now : null,
             ]);
         }
 

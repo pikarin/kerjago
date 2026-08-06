@@ -4,20 +4,35 @@ namespace App\Http\Resources;
 
 use App\Models\JobseekerLanguage;
 use App\Models\JobseekerProfile;
+use App\Support\Masking\Mask;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * Candidate card shape for talent search results, shared by the Inertia
- * talent index and any future JSON API (ADR 0003). Contact details (phone,
- * WhatsApp, email), the raw birth date, and resumes are deliberately
- * excluded — contact reveal ships later behind employer quota and jobseeker
- * consent. Age is exposed; the birth date it derives from is not.
+ * talent index and any future JSON API (ADR 0003).
+ *
+ * Candidates are locked by default: without an active Candidate Unlock the raw
+ * name, email and phone numbers never leave the server — the client receives the
+ * masked strings and could not reveal them if it tried. The avatar is the one
+ * exception and is sent either way; the lock icon over it is decoration (ADR 0013).
+ *
+ * Everything a search filters on — skills, location, salary, age, education —
+ * stays unmasked. Masking the search value would make search useless.
  *
  * @mixin JobseekerProfile
  */
 class TalentSummaryResource extends JsonResource
 {
+    /**
+     * @param  bool  $isUnlocked  whether the viewing employer holds an active
+     *                            Candidate Unlock for this profile
+     */
+    public function __construct(JobseekerProfile $resource, private bool $isUnlocked = false)
+    {
+        parent::__construct($resource);
+    }
+
     /**
      * Transform the resource into an array.
      *
@@ -27,7 +42,11 @@ class TalentSummaryResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'full_name' => $this->full_name,
+            'is_locked' => ! $this->isUnlocked,
+            'full_name' => $this->isUnlocked ? $this->full_name : Mask::name($this->full_name),
+            'email' => $this->isUnlocked ? $this->user->email : Mask::email($this->user->email),
+            'phone' => $this->isUnlocked ? $this->phone : Mask::phone($this->phone),
+            'whatsapp' => $this->isUnlocked ? $this->whatsapp : Mask::phone($this->whatsapp),
             'current_title' => $this->current_title,
             'current_company' => $this->current_company,
             'preferred_job_title' => $this->preferred_job_title,

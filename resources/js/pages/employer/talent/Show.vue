@@ -5,11 +5,15 @@ import {
     CalendarClock,
     GraduationCap,
     Languages,
+    Mail,
     MapPin,
+    MessageCircle,
+    Phone,
     Target,
     Wallet,
 } from '@lucide/vue';
 import Heading from '@/components/Heading.vue';
+import LockedBadge from '@/components/LockedBadge.vue';
 import SkillTags from '@/components/SkillTags.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { dashboard } from '@/routes';
@@ -96,6 +100,49 @@ function formatMonth(value: string): string {
                     : profile.current_title
             "
         />
+
+        <Card>
+            <CardHeader>
+                <CardTitle class="flex items-center gap-2 text-base">
+                    Contact details
+                    <LockedBadge v-if="profile.is_locked" />
+                </CardTitle>
+            </CardHeader>
+            <CardContent class="grid gap-2 text-sm text-muted-foreground">
+                <p
+                    v-if="profile.is_locked"
+                    class="text-sm text-muted-foreground"
+                >
+                    This candidate is locked. Their full name and contact
+                    details unlock automatically when they are among the first
+                    ten applicants to one of your jobs.
+                </p>
+                <p
+                    v-if="profile.email"
+                    class="flex items-center gap-2"
+                    :class="{ 'opacity-60': profile.is_locked }"
+                >
+                    <Mail class="size-4" />
+                    {{ profile.email }}
+                </p>
+                <p
+                    v-if="profile.phone"
+                    class="flex items-center gap-2"
+                    :class="{ 'opacity-60': profile.is_locked }"
+                >
+                    <Phone class="size-4" />
+                    {{ profile.phone }}
+                </p>
+                <p
+                    v-if="profile.whatsapp"
+                    class="flex items-center gap-2"
+                    :class="{ 'opacity-60': profile.is_locked }"
+                >
+                    <MessageCircle class="size-4" />
+                    {{ profile.whatsapp }}
+                </p>
+            </CardContent>
+        </Card>
 
         <Card>
             <CardHeader>

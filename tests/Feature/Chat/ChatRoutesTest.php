@@ -6,6 +6,7 @@ use App\Chat\Models\Message;
 use App\Chat\Models\Participant;
 use App\Enums\ChatContextType;
 use App\Http\Resources\Chat\MessageResource;
+use App\Models\CandidateUnlock;
 use App\Models\EmployerProfile;
 use App\Models\Job;
 use App\Models\JobseekerProfile;
@@ -318,9 +319,14 @@ test('opening a conversation costs the same queries regardless of message count'
     expect($countFor(20))->toBe($countFor(2));
 });
 
-test('an employer can start cold outreach from talent search', function () {
+test('an employer can start cold outreach with an unlocked candidate', function () {
     $employer = EmployerProfile::factory()->create();
     $target = JobseekerProfile::factory()->create();
+
+    CandidateUnlock::factory()->create([
+        'employer_profile_id' => $employer->id,
+        'jobseeker_profile_id' => $target->id,
+    ]);
 
     $this->actingAs($employer->user)
         ->post(route('employer.talent.chat', $target))
@@ -329,9 +335,25 @@ test('an employer can start cold outreach from talent search', function () {
     expect(Conversation::query()->count())->toBe(1);
 });
 
+test('cold outreach from talent search is forbidden for a locked candidate', function () {
+    $employer = EmployerProfile::factory()->create();
+    $target = JobseekerProfile::factory()->create();
+
+    $this->actingAs($employer->user)
+        ->post(route('employer.talent.chat', $target))
+        ->assertForbidden();
+
+    expect(Conversation::query()->count())->toBe(0);
+});
+
 test('cold outreach from talent search does not duplicate on a second click', function () {
     $employer = EmployerProfile::factory()->create();
     $target = JobseekerProfile::factory()->create();
+
+    CandidateUnlock::factory()->create([
+        'employer_profile_id' => $employer->id,
+        'jobseeker_profile_id' => $target->id,
+    ]);
 
     $this->actingAs($employer->user)->post(route('employer.talent.chat', $target));
     $this->actingAs($employer->user)->post(route('employer.talent.chat', $target));

@@ -48,6 +48,9 @@ class JobController extends Controller
                     'location_country' => $job->location_country,
                     'applications_count' => $job->applications_count,
                     'created_at' => $job->created_at?->diffForHumans(),
+                    'published_at' => $job->published_at?->toFormattedDateString(),
+                    'expires_at' => $job->expires_at?->toFormattedDateString(),
+                    'is_published' => $job->isPublished(),
                 ]),
         ]);
     }
@@ -60,7 +63,7 @@ class JobController extends Controller
         return Inertia::render('employer/jobs/Create', [
             'countries' => Country::cases(),
             'currencies' => Currency::cases(),
-            'statuses' => JobStatus::cases(),
+            'statuses' => JobStatus::editableCases(),
             'employmentTypes' => EmploymentType::options(),
             'workArrangements' => WorkArrangement::options(),
             'experienceLevels' => ExperienceLevel::options(),
@@ -111,10 +114,12 @@ class JobController extends Controller
                 'experience_level' => $job->experience_level->value ?? '',
                 'education_level' => $job->education_level->value ?? '',
                 'status' => $job->status,
+                'expires_at' => $job->expires_at?->toFormattedDateString(),
+                'is_published' => $job->isPublished(),
             ],
             'countries' => Country::cases(),
             'currencies' => Currency::cases(),
-            'statuses' => JobStatus::cases(),
+            'statuses' => JobStatus::editableCases(),
             'employmentTypes' => EmploymentType::options(),
             'workArrangements' => WorkArrangement::options(),
             'experienceLevels' => ExperienceLevel::options(),

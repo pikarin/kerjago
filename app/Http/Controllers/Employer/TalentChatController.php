@@ -23,11 +23,14 @@ class TalentChatController extends Controller
         JobseekerProfile $jobseekerProfile,
         StartColdOutreach $startColdOutreach,
     ): RedirectResponse {
-        // The same profile-visibility gate the adjacent talent.show endpoint
-        // applies. Not a consent check — cold outreach is deliberately ungated.
-        // Without this, a profile that becomes unviewable for any other reason
-        // would 403 on read while still accepting a new conversation.
+        // Two gates, deliberately: 'view' is the same profile-visibility check
+        // the adjacent talent.show endpoint applies, and 'viewContact' is the
+        // Candidate Unlock rule — chat is a contact channel, so leaving it open
+        // would route straight around the mask (ADR 0013). StartColdOutreach
+        // refuses too; this is what turns that into a clean 403 rather than an
+        // exception from inside the Action.
         Gate::authorize('view', $jobseekerProfile);
+        Gate::authorize('viewContact', $jobseekerProfile);
 
         /** @var User $user */
         $user = $request->user();
