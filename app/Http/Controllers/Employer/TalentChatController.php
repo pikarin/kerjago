@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Employer;
 
 use App\Actions\Chat\StartColdOutreach;
+use App\Enums\EmployerCapability;
 use App\Http\Controllers\Controller;
 use App\Models\JobseekerProfile;
 use App\Models\User;
+use App\Support\Capabilities\EmployerCapabilities;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -22,6 +24,7 @@ class TalentChatController extends Controller
         Request $request,
         JobseekerProfile $jobseekerProfile,
         StartColdOutreach $startColdOutreach,
+        EmployerCapabilities $capabilities,
     ): RedirectResponse {
         // Two gates, deliberately: 'view' is the same profile-visibility check
         // the adjacent talent.show endpoint applies, and 'viewContact' is the
@@ -34,6 +37,16 @@ class TalentChatController extends Controller
 
         /** @var User $user */
         $user = $request->user();
+
+        // Structurally unreachable today — cold outreach needs a Candidate
+        // Unlock, and an employer who cannot publish never earns one. Checked
+        // anyway, because that coincidence stops holding the moment a package
+        // grants unlocks independently of verification.
+        abort_unless(
+            $user->employerProfile !== null
+                && $capabilities->allows($user->employerProfile, EmployerCapability::ParticipateInChat),
+            403,
+        );
 
         $conversation = $startColdOutreach->handle($user, $jobseekerProfile);
 

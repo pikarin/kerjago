@@ -114,6 +114,7 @@ const anyoneElseHere = computed<boolean>(() =>
 
         <MessageComposer
             :conversation-id="conversation.id"
+            :can-send="conversation.can_send_message"
             @typing="notifyTyping"
         />
     </section>

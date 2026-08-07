@@ -6,6 +6,7 @@ import Heading from '@/components/Heading.vue';
 import PaginationNav from '@/components/PaginationNav.vue';
 import StatusBadge from '@/components/StatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import VerificationBanner from '@/components/VerificationBanner.vue';
 import { dashboard } from '@/routes';
 import {
     applicants,
@@ -58,6 +59,8 @@ function publishJob(jobId: string): void {
                 <Link :href="create()"><Plus class="size-4" /> Post a job</Link>
             </Button>
         </div>
+
+        <VerificationBanner />
 
         <EmptyState
             v-if="jobs.data.length === 0"

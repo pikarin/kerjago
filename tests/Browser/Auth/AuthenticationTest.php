@@ -41,7 +41,7 @@ test('a jobseeker signs in through the form and lands on their dashboard', funct
 });
 
 test('an employer signing in lands on the employer dashboard', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $employer->user->update(['email' => 'budi@kerjago.test']);
 
     $page = visit('/login');

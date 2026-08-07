@@ -9,6 +9,8 @@ const props = defineProps<{
 
 const styles: Record<string, string> = {
     draft: 'border-transparent bg-muted text-muted-foreground',
+    pending:
+        'border-transparent bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300',
     active: 'border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
     closed: 'border-transparent bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
     expired:

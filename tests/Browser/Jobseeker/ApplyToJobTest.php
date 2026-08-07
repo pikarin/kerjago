@@ -113,7 +113,7 @@ test('a guest is offered a login rather than an apply button', function () {
  * apply either.
  */
 test('an employer sees no way to apply', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $job = activeJob();
 
     $this->actingAs($employer->user);

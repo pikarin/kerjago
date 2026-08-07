@@ -7,6 +7,7 @@ use App\Chat\Models\Participant;
 use App\Support\Chat\ChatDirectory;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * @mixin Conversation
@@ -44,6 +45,13 @@ class ConversationResource extends JsonResource
             ],
 
             'participants' => $this->participants($conversation),
+
+            // Asked of the policy rather than recomputed here, so the composer
+            // is disabled on exactly the threads the write endpoint would
+            // refuse — including the staff-thread exemption, which the client
+            // must not have to know about a second time.
+            'can_send_message' => Gate::allows('sendMessage', $conversation),
+
             'unread_count' => $conversation->unread_count ?? 0,
             'last_message_at' => $conversation->last_message_at?->toIso8601String(),
         ];

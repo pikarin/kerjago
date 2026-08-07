@@ -5,6 +5,7 @@ namespace App\Enums;
 enum JobStatus: string
 {
     case Draft = 'draft';
+    case Pending = 'pending';
     case Active = 'active';
     case Closed = 'closed';
     case Expired = 'expired';
@@ -14,7 +15,9 @@ enum JobStatus: string
      *
      * Active is absent on purpose: going live stamps the 45-day clock, so it
      * runs through PublishJob rather than through a dropdown value that an
-     * ordinary edit could re-send. Expired is set by the daily sweep only.
+     * ordinary edit could re-send. Pending is absent for the same reason —
+     * it is where PublishJob lands an employer a capability gate declined.
+     * Expired is set by the daily sweep only.
      *
      * @return list<JobStatus>
      */

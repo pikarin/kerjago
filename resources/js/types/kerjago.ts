@@ -1,4 +1,11 @@
-export type JobStatus = 'draft' | 'active' | 'closed' | 'expired';
+export type JobStatus =
+    | 'draft'
+    // Publish was asked for and a capability gate declined it. Not the same as
+    // draft: the ad was finished and submitted.
+    | 'pending'
+    | 'active'
+    | 'closed'
+    | 'expired';
 
 export type ApplicationStatus =
     'submitted' | 'reviewed' | 'shortlisted' | 'rejected';

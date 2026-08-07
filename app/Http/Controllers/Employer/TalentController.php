@@ -7,6 +7,7 @@ use App\Actions\Unlocks\ResolveUnlockedProfileIds;
 use App\Enums\Availability;
 use App\Enums\Country;
 use App\Enums\EducationLevel;
+use App\Enums\EmployerCapability;
 use App\Enums\Gender;
 use App\Enums\Language;
 use App\Http\Controllers\Controller;
@@ -16,7 +17,10 @@ use App\Http\Resources\TalentSummaryResource;
 use App\Models\EmployerProfile;
 use App\Models\JobseekerProfile;
 use App\Models\User;
+use App\Support\Capabilities\EmployerCapabilities;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,27 +28,54 @@ use Inertia\Response;
 class TalentController extends Controller
 {
     /**
+     * Candidates per page. Also the whole allowance for an employer without
+     * the full-browse capability: one page, and no way to ask for a second.
+     *
+     * Cursor or numbered pagination would hide the number while still letting
+     * anyone count the pool by hand, twelve at a time.
+     */
+    private const int RESULTS_PER_PAGE = 12;
+
+    /**
      * Employer-facing hybrid talent search over jobseeker profiles.
+     *
+     * An employer without `BrowseTalentInFull` still searches, still filters
+     * and still sees real (masked) candidates — the feature has to be visible
+     * to be worth wanting. What they do not get is depth: one page, no facet
+     * counts, and no total.
      */
     public function index(
         SearchTalentRequest $request,
         SearchTalent $searchTalent,
         ResolveUnlockedProfileIds $resolveUnlockedProfileIds,
+        EmployerCapabilities $capabilities,
     ): Response {
         $filters = $request->filters();
-
-        $result = $searchTalent->handle($filters);
 
         /** @var User $user */
         $user = $request->user();
         /** @var EmployerProfile $employerProfile */
         $employerProfile = $user->employerProfile;
 
+        $browseInFull = $capabilities->for($employerProfile, EmployerCapability::BrowseTalentInFull);
+
+        if ($browseInFull->isDenied()) {
+            // Pinned before the Action runs, because both search paths resolve
+            // the page themselves. Without this, `?page=2` walks the pool.
+            Paginator::currentPageResolver(fn (): int => 1);
+        }
+
+        $result = $searchTalent->handle($filters, self::RESULTS_PER_PAGE);
+
+        $profiles = $browseInFull->allowed
+            ? $result->profiles
+            : $this->withoutDepth($result->profiles);
+
         // One lookup for the whole page of candidates; the Resource is handed
         // the answer rather than asking per card.
         $unlocked = $resolveUnlockedProfileIds->handle(
             $employerProfile,
-            array_values($result->profiles->getCollection()
+            array_values($profiles->getCollection()
                 ->map(fn (JobseekerProfile $profile): string => $profile->id)
                 ->all()),
         );
@@ -52,14 +83,17 @@ class TalentController extends Controller
         return Inertia::render('employer/talent/Index', [
             // Resource-mapped via through() to keep the flat paginator shape
             // the Vue Paginated<T> type expects (ADR 0003).
-            'profiles' => $result->profiles->through(fn (JobseekerProfile $profile) => (new TalentSummaryResource(
+            'profiles' => $profiles->through(fn (JobseekerProfile $profile) => (new TalentSummaryResource(
                 $profile,
                 isset($unlocked[$profile->id]),
             ))->resolve()),
             // Cast so an empty filter set serializes as {} rather than [].
             'filters' => (object) $filters,
-            'facets' => $result->facets,
-            'facetsAvailable' => $result->facetsAvailable,
+            // Counts are a depth signal in their own right: "240 candidates in
+            // Jakarta" tells an unvetted account how deep the pool runs.
+            'facets' => $browseInFull->allowed ? $result->facets : [],
+            'facetsAvailable' => $browseInFull->allowed && $result->facetsAvailable,
+            'browseInFull' => $browseInFull->toArray(),
             'facetOptions' => [
                 'experience_band' => self::experienceBandOptions(),
                 'availability' => Availability::options(),
@@ -97,6 +131,30 @@ class TalentController extends Controller
                 $resolveUnlockedProfileIds->has($employerProfile, $jobseekerProfile->id),
             ))->resolve(),
         ]);
+    }
+
+    /**
+     * Re-wrap a page of results so the paginator describes only itself.
+     *
+     * The total the engine reported is the pool's depth, and it reaches the
+     * client whether or not the UI prints it — as a number, and as the page
+     * links derived from it. Replacing it with the number of rows actually
+     * returned leaves nothing to read off.
+     *
+     * @param  LengthAwarePaginator<int, JobseekerProfile>  $profiles
+     * @return LengthAwarePaginator<int, JobseekerProfile>
+     */
+    private function withoutDepth(LengthAwarePaginator $profiles): LengthAwarePaginator
+    {
+        $items = $profiles->getCollection();
+
+        return new LengthAwarePaginator(
+            $items,
+            $items->count(),
+            self::RESULTS_PER_PAGE,
+            1,
+            ['path' => Paginator::resolveCurrentPath()],
+        );
     }
 
     /**
