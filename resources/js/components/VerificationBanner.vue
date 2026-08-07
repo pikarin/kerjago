@@ -45,8 +45,13 @@ const waitingSince = computed(() =>
                 checked your company. Talent Search and messaging open up at the
                 same time.
             </p>
+            <!--
+                "In the queue" rather than "we have your request": a company
+                that changed its name after being verified is queued for
+                re-review without ever having asked.
+            -->
             <p v-if="waitingSince !== null" class="text-sm">
-                We've had your request since {{ waitingSince }}.
+                You've been in the review queue since {{ waitingSince }}.
             </p>
         </div>
 

@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Notifications\EmployerUnverified;
 use App\Notifications\EmployerVerified;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
 beforeEach(function () {
@@ -222,6 +223,41 @@ it('cancels the batch using the id stored at revocation time', function () {
 
     expect($profile->refresh()->publish_batch_id)->toBeNull()
         ->and($profile->isVerified())->toBeFalse();
+});
+
+it('refuses to withdraw verification on a blank reason', function () {
+    $profile = EmployerProfile::factory()->verified()->create();
+
+    // `required` is satisfied by spaces, so the invariant cannot live in the
+    // form alone: an audit row with no reason records nothing worth keeping.
+    expect(fn () => app(UnverifyEmployer::class)->handle($profile, '   ', $this->staff))
+        ->toThrow(InvalidArgumentException::class);
+
+    expect($profile->refresh()->isVerified())->toBeTrue()
+        ->and(EmployerVerificationEvent::query()->count())->toBe(0);
+});
+
+it('pulls ads down outside the transaction that revokes', function () {
+    $profile = EmployerProfile::factory()->verified()->create();
+    $live = Job::factory()->for($profile, 'employerProfile')->create();
+
+    // Scout indexes synchronously here, so parking inside the revocation would
+    // hold the profile's row lock across a blocking call to the search engine.
+    // Observed indirectly: the revocation is already committed by the time the
+    // ads move, so a listener on the job save sees no open transaction.
+    // Compared against the baseline rather than zero: RefreshDatabase already
+    // holds one transaction open around every test.
+    $baseline = DB::transactionLevel();
+    $depthWhenParked = null;
+
+    Job::saved(function () use (&$depthWhenParked): void {
+        $depthWhenParked ??= DB::transactionLevel();
+    });
+
+    app(UnverifyEmployer::class)->handle($profile, 'Parked outside the lock', $this->staff);
+
+    expect($depthWhenParked)->toBe($baseline)
+        ->and($live->refresh()->status)->toBe(JobStatus::Pending);
 });
 
 it('records a verification request once, without restarting the clock', function () {

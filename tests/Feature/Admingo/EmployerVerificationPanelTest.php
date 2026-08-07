@@ -64,6 +64,21 @@ it('refuses to withdraw verification without an internal reason', function () {
     expect($profile->refresh()->isVerified())->toBeTrue();
 });
 
+it('refuses a reason that is only whitespace', function () {
+    $profile = EmployerProfile::factory()->verified()->create();
+
+    // Laravel's `required` is happy with a string of spaces, which would leave
+    // an audit row recording that something happened and nothing about why.
+    livewire(ListEmployerProfiles::class)
+        ->filterTable('unverified', false)
+        ->callAction(TestAction::make('unverify')->table($profile), [
+            'reason' => '     ',
+        ])
+        ->assertHasActionErrors(['reason']);
+
+    expect($profile->refresh()->isVerified())->toBeTrue();
+});
+
 it('withdraws verification and takes the live ads down', function () {
     $profile = EmployerProfile::factory()->verified()->create();
     $live = Job::factory()->for($profile, 'employerProfile')->create();

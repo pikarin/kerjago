@@ -13,6 +13,7 @@ use App\Notifications\EmployerUnverified;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 /**
  * Take a company's standing away, and take its ads down with it.
@@ -39,6 +40,14 @@ class UnverifyEmployer
         VerificationSource $source = VerificationSource::Staff,
         ?string $employerMessage = null,
     ): EmployerProfile {
+        // `required` accepts a string of spaces, so the invariant is enforced
+        // here rather than trusted to whatever form happened to submit it: an
+        // audit row whose reason is blank records that something happened and
+        // nothing about why.
+        if (trim($reason) === '') {
+            throw new InvalidArgumentException('Withdrawing verification requires a reason.');
+        }
+
         $batchId = null;
 
         $revoked = DB::transaction(function () use ($employerProfile, $reason, $actor, $source, $employerMessage, &$batchId): bool {
@@ -63,8 +72,6 @@ class UnverifyEmployer
                 'publish_batch_id' => null,
             ])->save();
 
-            $this->parkLiveJobs($locked);
-
             EmployerVerificationEvent::query()->create([
                 'employer_profile_id' => $locked->id,
                 'decision' => VerificationDecision::Unverified,
@@ -83,14 +90,13 @@ class UnverifyEmployer
             return $employerProfile;
         }
 
-        // A verification moments earlier may still have jobs queued. Left
-        // running, the batch would publish ads for a company that no longer may
-        // have them. Anything that slips through between the pull-back above
-        // and this cancellation is caught anyway: PublishJob re-checks the
-        // capability and parks the ad straight back.
+        // Cancelled before the ads are pulled down, so a batch still draining
+        // cannot publish behind the sweep below.
         if ($batchId !== null) {
             Bus::findBatch($batchId)?->cancel();
         }
+
+        $this->parkLiveJobs($employerProfile);
 
         $employerProfile->user->notify(new EmployerUnverified($employerProfile, $employerMessage));
 
@@ -103,6 +109,19 @@ class UnverifyEmployer
      * Per model, never a mass update: the save is what tells Scout to drop the
      * document, and a query-builder update would leave the ad in Typesense —
      * gone from the database's point of view, still findable in search.
+     *
+     * Runs **after** the revocation commits, never inside it. Scout is
+     * configured to index synchronously, so each save is a blocking HTTP call
+     * to Typesense; doing that under the profile's row lock would hold the lock
+     * for as long as the search engine takes to answer, and a timeout partway
+     * through would roll the revocation back while leaving the documents it had
+     * already deleted gone from the index. `jobs:expire` keeps its per-model
+     * loop outside a transaction for the same reason.
+     *
+     * Running after the commit is also what closes the window on a worker that
+     * read the profile mid-transaction, saw it still verified and published:
+     * that ad is Active by the time this sweep runs, so the sweep takes it back
+     * down.
      *
      * Keyed rather than offset-paged, for the same reason `jobs:expire` is: the
      * callback changes the very column the query filters on, so an offset-based

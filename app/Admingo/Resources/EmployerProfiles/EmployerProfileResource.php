@@ -11,6 +11,7 @@ use App\Models\EmployerProfile;
 use App\Models\EmployerVerificationEvent;
 use App\Models\User;
 use BackedEnum;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Textarea;
@@ -261,6 +262,14 @@ class EmployerProfileResource extends Resource
                     ->label('Internal reason')
                     ->helperText('Never shown to the company. Say what actually happened.')
                     ->required()
+                    // `required` is satisfied by a string of spaces, and the
+                    // Action refuses those outright — caught here so it reads
+                    // as a field error rather than an exception in a modal.
+                    ->rule(static fn (): Closure => static function (string $attribute, mixed $value, Closure $fail): void {
+                        if (self::text($value) === null) {
+                            $fail('Give a reason for withdrawing verification.');
+                        }
+                    })
                     ->rows(3),
                 Textarea::make('employer_message')
                     ->label('Message to the company (optional)')

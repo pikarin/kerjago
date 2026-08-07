@@ -156,6 +156,10 @@ test('renaming a verified company sends it back for review', function () {
     expect(EmployerVerificationEvent::query()->sole())
         ->decision->toBe(VerificationDecision::Unverified)
         ->source->toBe(VerificationSource::System);
+
+    // Queued in the same breath. The employer is told a re-check is coming and
+    // never asked for one, so nothing else would put them in front of staff.
+    expect($profile->verification_requested_at)->not->toBeNull();
 });
 
 test('editing details that do not identify the company keeps verification', function () {

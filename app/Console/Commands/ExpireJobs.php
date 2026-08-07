@@ -23,13 +23,19 @@ class ExpireJobs extends Command
      * Correctness does not depend on this command running — scopeActive already
      * refuses ads past `expires_at`. What it buys is the index staying clean and
      * the status column reading true.
+     *
+     * Parked ads are swept too. An ad pulled back to Pending keeps the window it
+     * was already running, and that window can lapse while it waits; left out,
+     * it would sit forever showing a past expiry beside a "Pending" badge and
+     * counting towards the ads-waiting figure staff work from. A Pending ad that
+     * never published has no `expires_at` at all, so it is never matched here.
      */
     public function handle(): int
     {
         $expired = 0;
 
         Job::query()
-            ->where('status', JobStatus::Active)
+            ->whereIn('status', [JobStatus::Active, JobStatus::Pending])
             ->where('expires_at', '<=', now())
             ->chunkById(100, function (Collection $jobs) use (&$expired): void {
                 /** @var Collection<int, Job> $jobs */

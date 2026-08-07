@@ -420,9 +420,13 @@ const hasFilters = computed(
                     page and the wall takes over. No pagination and no total, so
                     the pool's depth cannot be counted off the page — the cards
                     above are the whole of what this account may see.
+
+                    Only shown on a full page. A search that returned three
+                    candidates has no fourth being withheld, and claiming
+                    otherwise is a lie the employer can check.
                 -->
                 <CapabilityWall
-                    v-if="!browseInFull.allowed && profiles.data.length > 0"
+                    v-if="!browseInFull.allowed && profiles.data.length >= profiles.per_page"
                     :reason="browseInFull.reason"
                     subject="candidates"
                 />

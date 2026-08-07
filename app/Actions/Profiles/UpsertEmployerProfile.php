@@ -53,7 +53,16 @@ class UpsertEmployerProfile
                 employerMessage: __('Your company details changed, so we need to check them again before your jobs go back up.'),
             );
 
-            $profile->forceFill(['verified_at' => null, 'verified_by_id' => null]);
+            // Queued for review in the same breath. The employer is told a
+            // re-check is coming, and nobody asked them to ask — so without
+            // this the company would sit outside the Admingo badge and sort to
+            // the bottom of the queue on a null timestamp, waiting on a request
+            // it has no reason to make.
+            $profile->forceFill([
+                'verified_at' => null,
+                'verified_by_id' => null,
+                'verification_requested_at' => now(),
+            ]);
         }
 
         $profile->user()->associate($user);
