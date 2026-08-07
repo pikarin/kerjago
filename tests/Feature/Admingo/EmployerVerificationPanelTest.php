@@ -82,6 +82,31 @@ it('withdraws verification and takes the live ads down', function () {
         ->toBe('Fake listings, ticket #4412');
 });
 
+it('counts the ads each company has waiting', function () {
+    $profile = EmployerProfile::factory()->verificationRequested()->create();
+    Job::factory()->pending()->count(3)->for($profile, 'employerProfile')->create();
+    Job::factory()->draft()->for($profile, 'employerProfile')->create();
+
+    // The aggregate has to land on the attribute the column reads, or the
+    // whole column renders blank and staff cannot see what is queued.
+    livewire(ListEmployerProfiles::class)
+        ->assertCanSeeTableRecords([$profile])
+        ->assertTableColumnStateSet('jobs_pending_count', 3, $profile);
+});
+
+it('can still resolve the company it has just verified', function () {
+    $profile = EmployerProfile::factory()->verificationRequested()->create();
+    Job::factory()->pending()->for($profile, 'employerProfile')->create();
+
+    // Verifying drops the row out of the default "not yet verified" filter, so
+    // the follow-up progress modal has to resolve its record without it — the
+    // resolution failure is swallowed by Filament, and the modal would simply
+    // never open.
+    livewire(ListEmployerProfiles::class)
+        ->callAction(TestAction::make('verify')->table($profile))
+        ->assertActionMounted(TestAction::make('publishProgress')->table($profile));
+});
+
 it('badges the companies that actually asked, not every unverified one', function () {
     EmployerProfile::factory()->verificationRequested()->count(2)->create();
     EmployerProfile::factory()->unverified()->create();

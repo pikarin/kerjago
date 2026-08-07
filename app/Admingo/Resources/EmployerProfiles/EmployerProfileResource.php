@@ -128,9 +128,13 @@ class EmployerProfileResource extends Resource
                     ->since()
                     ->placeholder('Not asked')
                     ->sortable(),
+                // Aliased explicitly: Filament forwards this array to
+                // withCount(), which would otherwise name the result
+                // `jobs_count` and leave the column reading an attribute that
+                // does not exist.
                 TextColumn::make('jobs_pending_count')
                     ->counts([
-                        'jobs' => fn (Builder $query) => $query->where('status', JobStatus::Pending),
+                        'jobs as jobs_pending_count' => fn (Builder $query) => $query->where('status', JobStatus::Pending),
                     ])
                     ->label('Ads waiting'),
             ])
@@ -138,6 +142,12 @@ class EmployerProfileResource extends Resource
                 Filter::make('unverified')
                     ->label('Not yet verified')
                     ->query(fn (Builder $query) => $query->whereNull('verified_at'))
+                    // Excluded when an action resolves its record, or verifying
+                    // from this list would break its own follow-up: the company
+                    // stops matching the filter the moment it is verified, and
+                    // the progress modal would fail to find the row it was
+                    // just opened for.
+                    ->excludeWhenResolvingRecord()
                     ->default(),
                 Filter::make('requested')
                     ->label('Asked to be verified')

@@ -28,6 +28,10 @@ export type ChatConversation = {
     /**
      * Whether the viewer may write here. Server-decided, so the composer is
      * disabled on exactly the threads the write endpoint would refuse.
+     *
+     * Only resolved for the conversation that is open. Inbox rows always carry
+     * `false` — they render no composer, and answering it per row costs a
+     * policy check each.
      */
     can_send_message: boolean;
     unread_count: number;

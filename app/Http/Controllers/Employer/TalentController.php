@@ -59,13 +59,15 @@ class TalentController extends Controller
 
         $browseInFull = $capabilities->for($employerProfile, EmployerCapability::BrowseTalentInFull);
 
-        if ($browseInFull->isDenied()) {
-            // Pinned before the Action runs, because both search paths resolve
-            // the page themselves. Without this, `?page=2` walks the pool.
-            Paginator::currentPageResolver(fn (): int => 1);
-        }
-
-        $result = $searchTalent->handle($filters, self::RESULTS_PER_PAGE);
+        // Pinned by passing the page in rather than by swapping Paginator's
+        // page resolver: that resolver is process-wide static state, so under a
+        // long-lived worker it would pin every later paginator in the process
+        // too. Without the pin, `?page=2` walks the pool a screen at a time.
+        $result = $searchTalent->handle(
+            $filters,
+            self::RESULTS_PER_PAGE,
+            page: $browseInFull->isDenied() ? 1 : null,
+        );
 
         $profiles = $browseInFull->allowed
             ? $result->profiles

@@ -123,7 +123,7 @@ class ConversationController extends Controller
                 ? []
                 : $listLockedApplicantTeasers->handle($user->employerProfile),
             'conversations' => $this->propsFromDirectory($request, $conversations, $directory, $user->id),
-            'conversation' => (new ConversationResource($conversation, $directory, $user->id))->toArray($request),
+            'conversation' => (new ConversationResource($conversation, $directory, $user->id, withSendPermission: true))->toArray($request),
             'messages' => $messages->through(
                 fn (Message $message) => (new MessageResource($message))->toArray($request),
             ),

@@ -106,6 +106,31 @@ class VerifyEmployer
             ->name('publish-pending-jobs:'.$employerProfile->id)
             ->dispatch();
 
-        $employerProfile->forceFill(['publish_batch_id' => $batch->id])->save();
+        // The batch is dispatched before its id can be stored, so there is a
+        // window in which a revocation finds nothing to cancel. Recording the
+        // id under the row lock closes both halves of that: if the company was
+        // unverified while the batch was being composed, we do not write the id
+        // back onto a profile that no longer has a run, and we cancel the batch
+        // here — since the revocation could not.
+        $stillVerified = DB::transaction(function () use ($employerProfile, $batch): bool {
+            $locked = EmployerProfile::query()
+                ->whereKey($employerProfile->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if ($locked === null || ! $locked->isVerified()) {
+                return false;
+            }
+
+            $locked->forceFill(['publish_batch_id' => $batch->id])->save();
+
+            $employerProfile->setRawAttributes($locked->getAttributes(), sync: true);
+
+            return true;
+        });
+
+        if (! $stillVerified) {
+            Bus::findBatch($batch->id)?->cancel();
+        }
     }
 }

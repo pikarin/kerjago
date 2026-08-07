@@ -10,6 +10,7 @@ use App\Models\EmployerVerificationEvent;
 use App\Models\Job;
 use App\Models\User;
 use App\Notifications\EmployerUnverified;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 
@@ -38,9 +39,9 @@ class UnverifyEmployer
         VerificationSource $source = VerificationSource::Staff,
         ?string $employerMessage = null,
     ): EmployerProfile {
-        $batchId = $employerProfile->publish_batch_id;
+        $batchId = null;
 
-        $revoked = DB::transaction(function () use ($employerProfile, $reason, $actor, $source, $employerMessage): bool {
+        $revoked = DB::transaction(function () use ($employerProfile, $reason, $actor, $source, $employerMessage, &$batchId): bool {
             $locked = EmployerProfile::query()
                 ->whereKey($employerProfile->getKey())
                 ->lockForUpdate()
@@ -49,6 +50,12 @@ class UnverifyEmployer
             if ($locked === null || ! $locked->isVerified()) {
                 return false;
             }
+
+            // Read under the lock rather than off the caller's copy: a
+            // verification that landed after this profile was hydrated would
+            // otherwise leave us cancelling nothing, and its batch would keep
+            // draining.
+            $batchId = $locked->publish_batch_id;
 
             $locked->forceFill([
                 'verified_at' => null,
@@ -96,13 +103,20 @@ class UnverifyEmployer
      * Per model, never a mass update: the save is what tells Scout to drop the
      * document, and a query-builder update would leave the ad in Typesense —
      * gone from the database's point of view, still findable in search.
+     *
+     * Keyed rather than offset-paged, for the same reason `jobs:expire` is: the
+     * callback changes the very column the query filters on, so an offset-based
+     * chunk would step past everything the previous page shifted out of the
+     * result set and leave later ads live and indexed.
      */
     private function parkLiveJobs(EmployerProfile $employerProfile): void
     {
         $employerProfile->jobs()
             ->where('status', JobStatus::Active)
-            ->each(function (Job $job): void {
-                $job->forceFill(['status' => JobStatus::Pending])->save();
+            ->chunkById(200, function (Collection $jobs): void {
+                $jobs->each(function (Job $job): void {
+                    $job->forceFill(['status' => JobStatus::Pending])->save();
+                });
             });
     }
 }

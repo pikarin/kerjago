@@ -4,7 +4,10 @@ use App\Chat\Models\Conversation;
 use App\Chat\Models\Participant;
 use App\Enums\ConversationKind;
 use App\Enums\JobStatus;
+use App\Enums\VerificationDecision;
+use App\Enums\VerificationSource;
 use App\Models\EmployerProfile;
+use App\Models\EmployerVerificationEvent;
 use App\Models\Job;
 use App\Models\JobseekerProfile;
 
@@ -122,6 +125,62 @@ test('an unverified employer cannot cold-outreach a candidate', function () {
     $this->actingAs(EmployerProfile::factory()->unverified()->create()->user)
         ->post(route('employer.talent.chat', $candidate))
         ->assertForbidden();
+});
+
+test('renaming a verified company sends it back for review', function () {
+    $profile = EmployerProfile::factory()->verified()->create([
+        'company_name' => 'Throwaway Co',
+        'industry' => 'Technology',
+        'country' => 'ID',
+        'city' => 'Jakarta',
+        'website' => 'https://throwaway.test',
+    ]);
+    $live = Job::factory()->for($profile, 'employerProfile')->create();
+
+    $this->actingAs($profile->user)
+        ->put(route('employer.profile.update'), [
+            'company_name' => 'Gojek',
+            'industry' => 'Technology',
+            'country' => 'ID',
+            'city' => 'Jakarta',
+            'website' => 'https://throwaway.test',
+        ])
+        ->assertRedirect();
+
+    // Otherwise the cheapest attack on the whole gate is to get a throwaway
+    // company verified and then become someone well known.
+    expect($profile->refresh()->isVerified())->toBeFalse()
+        ->and($profile->company_name)->toBe('Gojek')
+        ->and($live->refresh()->status)->toBe(JobStatus::Pending);
+
+    expect(EmployerVerificationEvent::query()->sole())
+        ->decision->toBe(VerificationDecision::Unverified)
+        ->source->toBe(VerificationSource::System);
+});
+
+test('editing details that do not identify the company keeps verification', function () {
+    $profile = EmployerProfile::factory()->verified()->create([
+        'company_name' => 'Kerjago Labs',
+        'industry' => 'Technology',
+        'country' => 'ID',
+        'city' => 'Jakarta',
+        'website' => 'https://kerjago.test',
+    ]);
+    $live = Job::factory()->for($profile, 'employerProfile')->create();
+
+    $this->actingAs($profile->user)
+        ->put(route('employer.profile.update'), [
+            'company_name' => 'Kerjago Labs',
+            'industry' => 'Logistics',
+            'country' => 'ID',
+            'city' => 'Bandung',
+            'website' => 'https://kerjago.test',
+        ])
+        ->assertRedirect();
+
+    expect($profile->refresh()->isVerified())->toBeTrue()
+        ->and($live->refresh()->status)->toBe(JobStatus::Active)
+        ->and(EmployerVerificationEvent::query()->count())->toBe(0);
 });
 
 test('an employer can ask to be reviewed, once', function () {

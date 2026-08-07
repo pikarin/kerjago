@@ -194,6 +194,36 @@ it('does nothing when the company is already unverified', function () {
     expect(EmployerVerificationEvent::query()->count())->toBe(0);
 });
 
+it('parks every live ad, not just the first chunk', function () {
+    $profile = EmployerProfile::factory()->verified()->create();
+    // Two chunks' worth at the 200 chunk size. An offset-based chunk would step
+    // past everything the first page shifted out of the result set, leaving the
+    // rest live and indexed.
+    Job::factory()->count(205)->for($profile, 'employerProfile')->create();
+
+    app(UnverifyEmployer::class)->handle($profile, 'Bulk revocation', $this->staff);
+
+    expect($profile->jobs()->where('status', JobStatus::Active)->count())->toBe(0)
+        ->and($profile->jobs()->where('status', JobStatus::Pending)->count())->toBe(205);
+});
+
+it('cancels the batch using the id stored at revocation time', function () {
+    $profile = EmployerProfile::factory()->unverified()->create();
+    Job::factory()->pending()->for($profile, 'employerProfile')->create();
+
+    app(VerifyEmployer::class)->handle($profile, $this->staff);
+
+    // A caller holding a copy hydrated before the verification: the batch id it
+    // knows about is null, so cancelling has to read the stored one instead.
+    $stale = EmployerProfile::query()->findOrFail($profile->id);
+    $stale->forceFill(['publish_batch_id' => null])->syncOriginal();
+
+    app(UnverifyEmployer::class)->handle($stale, 'Revoked from a stale copy', $this->staff);
+
+    expect($profile->refresh()->publish_batch_id)->toBeNull()
+        ->and($profile->isVerified())->toBeFalse();
+});
+
 it('records a verification request once, without restarting the clock', function () {
     $profile = EmployerProfile::factory()->unverified()->create();
 
