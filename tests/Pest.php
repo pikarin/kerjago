@@ -3,6 +3,7 @@
 use App\Admingo\Models\StaffUser;
 use App\Chat\Events\MessageRead;
 use App\Chat\Events\MessageSent;
+use App\Models\Job;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
@@ -29,6 +30,21 @@ pest()->extend(TestCase::class)
 
 /*
 |--------------------------------------------------------------------------
+| End-to-end group
+|--------------------------------------------------------------------------
+|
+| Browser tests drive a real browser against a booted server, so they are an
+| order of magnitude slower per test than the rest of the suite and fail for
+| reasons the code under test is not responsible for. The `e2e` group is what
+| phpunit.xml excludes from the default run; ask for them explicitly with
+| `php artisan test --group=e2e`, which overrides that exclusion.
+|
+*/
+
+pest()->group('e2e')->in('Browser');
+
+/*
+|--------------------------------------------------------------------------
 | Chat broadcast transport
 |--------------------------------------------------------------------------
 |
@@ -44,6 +60,10 @@ pest()->extend(TestCase::class)
 | a job application now queues chat work, and with the sync queue that runs
 | inline, so tests with no interest in chat would otherwise fail on a cURL error.
 |
+| Browser is faked for the same reason and needs it more visibly: the browser
+| driver runs the application in this very process, so an unfaked broadcast turns
+| a moved applicant into a 500 page rather than an exception a test can read.
+|
 | Channel authorization is unaffected, because /broadcasting/auth does not go
 | through the event dispatcher, and broadcastOn()/broadcastWith() are asserted
 | directly against freshly constructed events.
@@ -52,7 +72,7 @@ pest()->extend(TestCase::class)
 
 pest()->beforeEach(function () {
     Event::fake([MessageSent::class, MessageRead::class]);
-})->in('Feature');
+})->in('Feature', 'Browser');
 
 /*
 |--------------------------------------------------------------------------
@@ -157,6 +177,74 @@ function assertPageEventuallyShows(AwaitableWebpage|PendingAwaitablePage|Webpage
     }
 
     $page->assertSee($text);
+
+    return $page;
+}
+
+/**
+ * The mirror of assertPageEventuallyShows: wait for something to *stop* being
+ * shown. Needed wherever a list re-renders in place — the old rows are still on
+ * screen while the Inertia visit is in flight, so a bare assertDontSee() would
+ * pass or fail on timing rather than on the result.
+ */
+function assertPageEventuallyHides(AwaitableWebpage|PendingAwaitablePage|Webpage $page, string $text, int $timeoutMilliseconds = 10_000): AwaitableWebpage|PendingAwaitablePage|Webpage
+{
+    $deadline = microtime(true) + ($timeoutMilliseconds / 1000);
+
+    while (microtime(true) < $deadline) {
+        try {
+            $page->assertDontSee($text);
+
+            return $page;
+        } catch (Throwable) {
+            usleep(100_000);
+        }
+    }
+
+    $page->assertDontSee($text);
+
+    return $page;
+}
+
+/**
+ * An active job with fixed, searchable copy.
+ *
+ * The factory randomises title, city, description and skills, none of which a
+ * browser test can assert against — and, worse, any of which can collide: the
+ * keyword search reads title, description and city, so one random word shared
+ * between two jobs turns a "one result" assertion into a coin flip.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function activeJob(array $attributes = []): Job
+{
+    return Job::factory()->create([
+        'title' => 'Senior Laravel Developer',
+        'description' => 'Own a mature codebase and the pipeline that ships it.',
+        'skills' => ['Redis', 'Docker'],
+        'location_city' => 'Jakarta',
+        'location_country' => 'ID',
+        ...$attributes,
+    ]);
+}
+
+/**
+ * Pick an option out of a Reka UI `<Select>`, naming it by the text its trigger
+ * currently shows — its placeholder, or the option already chosen.
+ *
+ * Both halves are addressed by ARIA role rather than by text alone. The trigger,
+ * because a field's `<Label>` usually carries the same word as its placeholder
+ * ("Currency", "Status"), and clicking the label opens nothing. The option,
+ * because once chosen its text also appears in the trigger, so a plain text
+ * match would have two candidates — and Reka teleports the open listbox to the
+ * end of `<body>`, well away from the trigger it belongs to.
+ */
+function chooseFromSelect(AwaitableWebpage|PendingAwaitablePage|Webpage $page, string $triggerText, string $option): AwaitableWebpage|PendingAwaitablePage|Webpage
+{
+    $page->click(sprintf('[role="combobox"]:has-text("%s")', $triggerText));
+
+    assertPageEventuallyShows($page, $option)
+        ->click(sprintf('[role="option"]:has-text("%s")', $option));
 
     return $page;
 }

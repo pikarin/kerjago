@@ -60,9 +60,10 @@ jobs:
       - name: Install Node Dependencies
         run: npm i
 
-      # tests/Browser runs as part of `php artisan test`, and the Pest browser
-      # plugin drives a real Chromium through Playwright's own server. Only
-      # Chromium is downloaded: nothing in the suite pins another engine.
+      # tests/Browser is excluded from `php artisan test` by the `e2e` group and
+      # runs in its own step below. The Pest browser plugin drives a real
+      # Chromium through Playwright's own server. Only Chromium is downloaded:
+      # nothing in the suite pins another engine.
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
@@ -84,4 +85,12 @@ jobs:
       - name: Tests
         env:
           DB_HOST: 127.0.0.1
-        run: php artisan test
+        run: php artisan test --parallel
+
+      # Serial and separate: the browser tests share one Playwright server and
+      # a booted application, so they neither parallelise cleanly nor belong in
+      # the fast feedback the step above gives.
+      - name: Browser Tests
+        env:
+          DB_HOST: 127.0.0.1
+        run: php artisan test --group=e2e

@@ -11,8 +11,12 @@ withDefaults(defineProps<{ label?: string }>(), { label: 'Locked' });
 </script>
 
 <template>
+    <!-- The hook is for browser tests: "Locked" is a substring of "unlocked",
+         which the applicant list says in its quota line, so the badge cannot be
+         asserted absent by its own text. -->
     <Badge
         variant="outline"
+        data-test="locked-badge"
         class="gap-1 border-transparent bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
     >
         <Lock class="size-3" />

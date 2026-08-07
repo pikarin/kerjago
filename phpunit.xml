@@ -13,11 +13,19 @@
         </testsuite>
         <!-- Real-browser end-to-end tests. Last, so the fast suites report
              first, and excluded from the default run by `php artisan test`
-             through the `e2e` group. -->
+             through the `e2e` group below. -->
         <testsuite name="Browser">
             <directory>tests/Browser</directory>
         </testsuite>
     </testsuites>
+    <!-- The `e2e` group is applied to tests/Browser in tests/Pest.php. Run the
+         browser tests with `php artisan test` and an explicit `group=e2e`
+         option, which overrides this exclusion. -->
+    <groups>
+        <exclude>
+            <group>e2e</group>
+        </exclude>
+    </groups>
     <source>
         <include>
             <directory>app</directory>
