@@ -29,11 +29,31 @@ class DatabaseSeeder extends Seeder
                     'email' => 'employer@example.com',
                 ]);
 
-                $employerProfile = EmployerProfile::factory()->for($employer)->create([
+                $employerProfile = EmployerProfile::factory()->verified()->for($employer)->create([
                     'company_name' => 'Kerjago Demo Co',
                     'country' => 'ID',
                     'city' => 'Jakarta',
                 ]);
+
+                // A company still waiting on us, with ads parked behind the
+                // gate — otherwise the verification queue, the parked-job
+                // status and the Talent Search wall are all unreachable in a
+                // freshly seeded environment.
+                $unverifiedEmployer = User::factory()->employer()->create([
+                    'name' => 'Pending Employer',
+                    'email' => 'pending-employer@example.com',
+                ]);
+
+                $unverifiedProfile = EmployerProfile::factory()
+                    ->verificationRequested()
+                    ->for($unverifiedEmployer)
+                    ->create([
+                        'company_name' => 'Belum Terverifikasi Co',
+                        'country' => 'ID',
+                        'city' => 'Bandung',
+                    ]);
+
+                Job::factory(3)->pending()->recycle($unverifiedProfile)->create();
 
                 $jobseeker = User::factory()->jobseeker()->create([
                     'name' => 'Demo Jobseeker',

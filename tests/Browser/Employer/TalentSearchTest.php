@@ -18,7 +18,7 @@ use App\Models\JobseekerProfile;
  * search for "Laravel" in roughly half of all runs.
  */
 beforeEach(function () {
-    $this->employer = EmployerProfile::factory()->create();
+    $this->employer = EmployerProfile::factory()->verified()->create();
 
     JobseekerProfile::factory()->create([
         'full_name' => 'Rina Kartika',

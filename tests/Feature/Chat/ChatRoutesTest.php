@@ -320,7 +320,7 @@ test('opening a conversation costs the same queries regardless of message count'
 });
 
 test('an employer can start cold outreach with an unlocked candidate', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $target = JobseekerProfile::factory()->create();
 
     CandidateUnlock::factory()->create([
@@ -336,7 +336,7 @@ test('an employer can start cold outreach with an unlocked candidate', function 
 });
 
 test('cold outreach from talent search is forbidden for a locked candidate', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $target = JobseekerProfile::factory()->create();
 
     $this->actingAs($employer->user)
@@ -347,7 +347,7 @@ test('cold outreach from talent search is forbidden for a locked candidate', fun
 });
 
 test('cold outreach from talent search does not duplicate on a second click', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $target = JobseekerProfile::factory()->create();
 
     CandidateUnlock::factory()->create([

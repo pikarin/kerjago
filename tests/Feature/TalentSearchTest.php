@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 test('employer with a company profile can browse jobseeker profiles', function () {
     JobseekerProfile::factory(3)->create();
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('employer.talent.index'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
@@ -47,7 +47,7 @@ test('talent can be searched by keyword across name, titles, and skills', functi
     JobseekerProfile::factory()->minimal()->create(['full_name' => 'Budi Santoso', 'current_title' => 'Laravel Developer', 'skills' => ['PHP']]);
     JobseekerProfile::factory()->minimal()->create(['full_name' => 'Citra Dewi', 'current_title' => 'Designer', 'skills' => ['Laravel', 'Vue.js']]);
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('employer.talent.index', ['q' => 'laravel']))
         ->assertInertia(fn ($page) => $page->has('profiles.data', 2));
 });
@@ -63,7 +63,7 @@ test('talent can be searched by preferred job title and work-experience titles',
     $pastManager = JobseekerProfile::factory()->minimal()->create(['full_name' => 'Citra', 'current_title' => 'Chef', 'skills' => ['Cooking']]);
     WorkExperience::factory()->for($pastManager, 'jobseekerProfile')->create(['job_title' => 'Kitchen Manager']);
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('employer.talent.index', ['q' => 'manager']))
         ->assertInertia(fn ($page) => $page->has('profiles.data', 2));
 });
@@ -73,7 +73,7 @@ test('talent can be filtered by country and experience', function () {
     JobseekerProfile::factory()->create(['country' => 'ID', 'experience_years' => 8]);
     JobseekerProfile::factory()->create(['country' => 'VN', 'experience_years' => 10]);
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('employer.talent.index', ['country' => ['ID'], 'experience_min' => 5]))
         ->assertInertia(fn ($page) => $page->has('profiles.data', 1));
 });
@@ -82,7 +82,7 @@ test('scalar filter values from old bookmarked urls are still accepted', functio
     JobseekerProfile::factory()->create(['country' => 'ID']);
     JobseekerProfile::factory()->create(['country' => 'VN']);
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('employer.talent.index', ['country' => 'ID']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->has('profiles.data', 1));
@@ -94,7 +94,7 @@ test('facet values combine with OR within a facet and AND across facets', functi
     JobseekerProfile::factory()->create(['availability' => Availability::Immediately, 'country' => 'VN']);
     JobseekerProfile::factory()->create(['availability' => Availability::TwoMonthsPlus, 'country' => 'ID']);
 
-    $employer = EmployerProfile::factory()->create()->user;
+    $employer = EmployerProfile::factory()->verified()->create()->user;
 
     $this->actingAs($employer)
         ->get(route('employer.talent.index', ['availability' => ['immediately', 'two_weeks']]))
@@ -116,7 +116,7 @@ test('talent can be filtered by skills and languages', function () {
     $designer = JobseekerProfile::factory()->create(['skills' => ['Figma']]);
     JobseekerLanguage::factory()->for($designer, 'jobseekerProfile')->create(['language' => Language::Thai]);
 
-    $employer = EmployerProfile::factory()->create()->user;
+    $employer = EmployerProfile::factory()->verified()->create()->user;
 
     $this->actingAs($employer)
         ->get(route('employer.talent.index', ['skills' => ['Laravel']]))
@@ -133,7 +133,7 @@ test('experience bands translate to year ranges on the database fallback', funct
     JobseekerProfile::factory()->create(['experience_years' => 7]);
     JobseekerProfile::factory()->create(['experience_years' => 12]);
 
-    $employer = EmployerProfile::factory()->create()->user;
+    $employer = EmployerProfile::factory()->verified()->create()->user;
 
     $this->actingAs($employer)
         ->get(route('employer.talent.index', ['experience_band' => ['2-4']]))
@@ -148,7 +148,7 @@ test('talent can be filtered by preferred location', function () {
     JobseekerProfile::factory()->create(['preferred_country' => 'SG']);
     JobseekerProfile::factory()->create(['preferred_country' => 'ID']);
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('employer.talent.index', ['preferred_country' => ['SG']]))
         ->assertInertia(fn ($page) => $page->has('profiles.data', 1));
 });
@@ -156,7 +156,7 @@ test('talent can be filtered by preferred location', function () {
 test('invalid facet values are rejected', function (array $query) {
     JobseekerProfile::factory()->create();
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->from(route('employer.talent.index'))
         ->get(route('employer.talent.index', $query))
         ->assertRedirect(route('employer.talent.index', absolute: false));
@@ -170,7 +170,7 @@ test('invalid facet values are rejected', function (array $query) {
 test('an empty filter set serializes as a JSON object, not an array', function () {
     JobseekerProfile::factory()->create();
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('employer.talent.index'))
         ->assertOk()
         ->assertSee('"filters":{}', escape: false);
@@ -179,7 +179,7 @@ test('an empty filter set serializes as a JSON object, not an array', function (
 test('database fallback reports facets as unavailable', function () {
     JobseekerProfile::factory()->create();
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('employer.talent.index'))
         ->assertInertia(fn ($page) => $page
             ->where('facetsAvailable', false)
@@ -200,7 +200,7 @@ test('talent search survives an unreachable typesense server via the database fa
         'scout.typesense.client-settings.num_retries' => 0,
     ]);
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('employer.talent.index'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
@@ -217,7 +217,7 @@ test('search results mask a locked candidate and never send the raw values', fun
         'date_of_birth' => '1995-04-12',
     ]);
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('employer.talent.index'))
         ->assertInertia(fn ($page) => $page
             ->has('profiles.data', 1)
@@ -236,7 +236,7 @@ test('search results mask a locked candidate and never send the raw values', fun
 });
 
 test('an unlocked candidate is shown in full', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $profile = JobseekerProfile::factory()->create([
         'full_name' => 'Budi Santoso Wijaya',
         'phone' => '+6281234567890',
@@ -258,7 +258,7 @@ test('an unlocked candidate is shown in full', function () {
 });
 
 test('an expired unlock re-masks the candidate', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $profile = JobseekerProfile::factory()->create(['full_name' => 'Budi Santoso']);
 
     CandidateUnlock::factory()->expired()->create([
@@ -275,7 +275,7 @@ test('an expired unlock re-masks the candidate', function () {
 });
 
 test('resolving unlocks costs one query however many candidates are listed', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     JobseekerProfile::factory()->count(8)->create();
 
     $queries = 0;
@@ -365,7 +365,7 @@ test('employer viewing a locked candidate profile sees masked contact details', 
         'gender' => Gender::Female,
     ]);
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('employer.talent.show', $profile))
         ->assertOk()
         ->assertInertia(fn ($page) => $page

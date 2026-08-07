@@ -7,16 +7,25 @@ use App\Chat\Models\Participant;
 use App\Support\Chat\ChatDirectory;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * @mixin Conversation
  */
 class ConversationResource extends JsonResource
 {
+    /**
+     * @param  bool  $withSendPermission  Whether to resolve `can_send_message`.
+     *                                    Off for inbox rows: the flag is only
+     *                                    read by the open conversation's
+     *                                    composer, and answering it costs a
+     *                                    policy check per row.
+     */
     public function __construct(
         Conversation $resource,
         private ChatDirectory $directory,
         private string $viewerId,
+        private bool $withSendPermission = false,
     ) {
         parent::__construct($resource);
     }
@@ -44,6 +53,20 @@ class ConversationResource extends JsonResource
             ],
 
             'participants' => $this->participants($conversation),
+
+            // Asked of the policy rather than recomputed here, so the composer
+            // is disabled on exactly the threads the write endpoint would
+            // refuse — including the staff-thread exemption, which the client
+            // must not have to know about a second time.
+            //
+            // Resolved for the open conversation only. The inbox lists twenty
+            // rows and none of them render a composer, while the check reloads
+            // the viewer and their employer profile every time it runs — the
+            // fixed query count ListConversations is built around does not
+            // survive that.
+            'can_send_message' => $this->withSendPermission
+                && Gate::forUser($request->user())->allows('sendMessage', $conversation),
+
             'unread_count' => $conversation->unread_count ?? 0,
             'last_message_at' => $conversation->last_message_at?->toIso8601String(),
         ];

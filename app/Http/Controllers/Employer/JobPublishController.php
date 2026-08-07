@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Employer;
 
 use App\Actions\Jobs\PublishJob;
+use App\Enums\JobStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Job;
 use Illuminate\Http\RedirectResponse;
@@ -30,6 +31,18 @@ class JobPublishController extends Controller
         $wasLive = $job->isPublished();
 
         $publishJob->handle($job);
+
+        // A gate declined it. Not an error — the ad is written, submitted and
+        // waiting, and the employer's own banner explains what it is waiting
+        // on.
+        if ($job->status === JobStatus::Pending) {
+            Inertia::flash('toast', [
+                'type' => 'info',
+                'message' => __('This job is waiting to be published. It goes live as soon as your company is verified.'),
+            ]);
+
+            return to_route('employer.jobs.index');
+        }
 
         if ($wasLive) {
             Inertia::flash('toast', [

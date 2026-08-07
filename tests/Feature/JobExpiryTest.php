@@ -185,6 +185,24 @@ test('jobs:expire flips overdue ads and leaves live ones alone', function () {
         ->and($live->refresh()->status)->toBe(JobStatus::Active);
 });
 
+test('jobs:expire also retires a parked ad whose window ran out', function () {
+    // An ad pulled back to Pending keeps the window it was already running.
+    // Left out of the sweep it would sit forever showing a past expiry beside a
+    // "Pending" badge, and counting towards the ads-waiting figure staff work
+    // from.
+    $lapsed = Job::factory()->pending()->create([
+        'published_at' => now()->subDays(Job::PUBLISH_WINDOW_DAYS + 1),
+        'expires_at' => now()->subDay(),
+    ]);
+    $neverPublished = Job::factory()->pending()->create();
+
+    $this->artisan('jobs:expire')->assertSuccessful();
+
+    expect($lapsed->refresh()->status)->toBe(JobStatus::Expired)
+        // No window was ever stamped on this one, so there is nothing to lapse.
+        ->and($neverPublished->refresh()->status)->toBe(JobStatus::Pending);
+});
+
 test('a jobseeker cannot see another employer\'s expired ad either', function () {
     $job = Job::factory()->expired()->create();
 

@@ -58,7 +58,7 @@ test('every jobseeker page boots without console noise', function () {
 });
 
 test('every employer page boots without console noise', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $job = activeJob(['employer_profile_id' => $employer->id]);
 
     app(ApplyToJob::class)->handle(JobseekerProfile::factory()->create(), $job);

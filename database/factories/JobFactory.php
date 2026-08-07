@@ -141,6 +141,20 @@ class JobFactory extends Factory
     }
 
     /**
+     * A job whose publish was requested and declined by a capability gate. It
+     * has never gone live, so it carries no clock — the window is stamped when
+     * it actually publishes, not when it was written.
+     */
+    public function pending(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => JobStatus::Pending,
+            'published_at' => null,
+            'expires_at' => null,
+        ]);
+    }
+
+    /**
      * Indicate that the job is closed.
      */
     public function closed(): static

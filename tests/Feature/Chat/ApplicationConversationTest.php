@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Queue;
  */
 function applicationWithBothSides(): array
 {
-    $employerProfile = EmployerProfile::factory()->create();
+    $employerProfile = EmployerProfile::factory()->verified()->create();
     $job = Job::factory()->for($employerProfile)->create();
     $jobseekerProfile = JobseekerProfile::factory()->create();
 
@@ -93,7 +93,7 @@ test('ensuring the conversation twice yields one conversation', function () {
 test('applying to a job queues the conversation rather than opening it inline', function () {
     Queue::fake();
 
-    $employerProfile = EmployerProfile::factory()->create();
+    $employerProfile = EmployerProfile::factory()->verified()->create();
     $job = Job::factory()->for($employerProfile)->create();
     $jobseeker = JobseekerProfile::factory()->create();
 

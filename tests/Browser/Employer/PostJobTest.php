@@ -12,7 +12,7 @@ use App\Models\Job;
  * payload, so nothing above the request body is covered there.
  */
 beforeEach(function () {
-    $this->employer = EmployerProfile::factory()->create([
+    $this->employer = EmployerProfile::factory()->verified()->create([
         'company_name' => 'Kerjago Labs',
     ]);
 });

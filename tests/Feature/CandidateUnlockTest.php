@@ -83,7 +83,7 @@ test('re-publishing an expired job does not refill the quota', function () {
 });
 
 test('an applicant already unlocked elsewhere still spends a slot', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $firstJob = Job::factory()->for($employer)->create();
     $secondJob = Job::factory()->for($employer)->create();
 
@@ -103,7 +103,7 @@ test('an applicant already unlocked elsewhere still spends a slot', function () 
 });
 
 test('a second unlock for the same pair extends rather than duplicates', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $shortJob = Job::factory()->for($employer)->create(['expires_at' => now()->addDays(5)]);
     $longJob = Job::factory()->for($employer)->create(['expires_at' => now()->addDays(90)]);
 
@@ -139,7 +139,7 @@ test('applying to an expired job is refused and issues no unlock', function () {
 });
 
 test('a renewed unlock clears the revocation so the next expiry is swept again', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $profile = JobseekerProfile::factory()->create();
 
     CandidateUnlock::factory()->expired()->create([
@@ -162,7 +162,7 @@ test('a renewed unlock clears the revocation so the next expiry is swept again',
  * row forever when the new term ended.
  */
 test('unlocks:expire leaves alone a row renewed since the chunk was read', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $profile = JobseekerProfile::factory()->create();
 
     $unlock = CandidateUnlock::factory()->expired()->create([
@@ -215,7 +215,7 @@ test('a swept unlock never ends up active but locked out of its threads', functi
 });
 
 test('a renewal no longer than the current term still lifts a revocation', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $profile = JobseekerProfile::factory()->create();
 
     // The state the sweep-versus-renewal race produces: revoked, yet live.
@@ -236,7 +236,7 @@ test('a renewal no longer than the current term still lifts a revocation', funct
 });
 
 test('unlocks:expire does not reprocess a row it has already swept', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $profile = JobseekerProfile::factory()->create();
 
     CandidateUnlock::factory()->expired()->create([

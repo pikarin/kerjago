@@ -19,7 +19,23 @@ return new class extends Migration
             $table->string('country', 2);
             $table->string('city');
             $table->string('website')->nullable();
+            // Verification state is binary: null is unverified, set is
+            // verified. There is no rejected and no pending company state —
+            // "not looked at yet" and "looked at and refused" are the same
+            // thing to every read path.
+            $table->timestamp('verified_at')->nullable();
+            $table->foreignUlid('verified_by_id')->nullable()->constrained('users')->nullOnDelete();
+            // That the employer asked, not a review state machine. Sorts the
+            // Admingo queue and supplies the "waiting N days" number.
+            $table->timestamp('verification_requested_at')->nullable();
+            // The publish batch verification kicked off, so Admingo can poll
+            // its progress. Operational state on a domain table, accepted over
+            // a table written once per verification.
+            $table->string('publish_batch_id')->nullable();
             $table->timestamps();
+
+            // The Admingo queue: unverified profiles, requesters first.
+            $table->index(['verified_at', 'verification_requested_at']);
         });
     }
 

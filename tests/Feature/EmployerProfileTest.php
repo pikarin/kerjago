@@ -34,7 +34,7 @@ test('employer can create a company profile', function () {
 
 test('employer can update an existing company profile', function () {
     $user = User::factory()->employer()->create();
-    EmployerProfile::factory()->for($user)->create();
+    EmployerProfile::factory()->verified()->for($user)->create();
 
     $this->actingAs($user)->put(route('employer.profile.update'), [
         'company_name' => 'Renamed Co',

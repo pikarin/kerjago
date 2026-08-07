@@ -13,6 +13,7 @@ use App\Http\Controllers\Employer\JobController as EmployerJobController;
 use App\Http\Controllers\Employer\JobPublishController;
 use App\Http\Controllers\Employer\TalentChatController;
 use App\Http\Controllers\Employer\TalentController;
+use App\Http\Controllers\Employer\VerificationRequestController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\Jobseeker\ApplicationController;
@@ -61,6 +62,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('role:employer')->prefix('employer')->name('employer.')->group(function () {
         Route::get('company', [EmployerProfileController::class, 'edit'])->name('profile.edit');
         Route::put('company', [EmployerProfileController::class, 'update'])->name('profile.update');
+
+        // Outside the profile.complete group: asking to be reviewed is how an
+        // employer who has not posted anything gets into the Admingo queue, and
+        // the Talent Search wall points here. Throttled because it
+        // is an unauthenticated-adjacent write in everything but name — one
+        // click is all it should ever take.
+        Route::post('company/verification-request', [VerificationRequestController::class, 'store'])
+            ->middleware('throttle:10,1')
+            ->name('verification.request');
 
         Route::middleware('profile.complete')->group(function () {
             Route::resource('jobs', EmployerJobController::class)

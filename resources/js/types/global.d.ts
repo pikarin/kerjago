@@ -1,4 +1,8 @@
 import type { Auth } from '@/types/auth';
+import type {
+    EmployerCapabilities,
+    VerificationState,
+} from '@/types/capabilities';
 
 // Extend ImportMeta interface for Vite...
 declare module 'vite/client' {
@@ -18,6 +22,10 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            // Null for everyone the gates do not apply to: guests, jobseekers,
+            // staff, and employers who have not filled in a company profile.
+            capabilities: EmployerCapabilities | null;
+            verification: VerificationState | null;
             sidebarOpen: boolean;
             [key: string]: unknown;
         };

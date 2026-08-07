@@ -9,6 +9,7 @@ import {
 } from '@lucide/vue';
 import { watchDebounced } from '@vueuse/core';
 import { computed, reactive, ref } from 'vue';
+import CapabilityWall from '@/components/CapabilityWall.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FacetGroup from '@/components/FacetGroup.vue';
 import Heading from '@/components/Heading.vue';
@@ -26,6 +27,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { dashboard } from '@/routes';
 import { index, show } from '@/routes/employer/talent';
+import type { CapabilityDecision } from '@/types/capabilities';
 import { countryLabel } from '@/types/kerjago';
 import type {
     FacetOption,
@@ -53,6 +55,7 @@ const props = defineProps<{
     };
     facets: Facets;
     facetsAvailable: boolean;
+    browseInFull: CapabilityDecision;
     facetOptions: {
         experience_band: FacetOption[];
         availability: FacetOption[];
@@ -412,7 +415,23 @@ const hasFilters = computed(
                     description="Try broadening your search or removing filters."
                 />
 
-                <PaginationNav :paginator="profiles" />
+                <!--
+                    Without the full-browse capability the results stop after one
+                    page and the wall takes over. No pagination and no total, so
+                    the pool's depth cannot be counted off the page — the cards
+                    above are the whole of what this account may see.
+
+                    Only shown on a full page. A search that returned three
+                    candidates has no fourth being withheld, and claiming
+                    otherwise is a lie the employer can check.
+                -->
+                <CapabilityWall
+                    v-if="!browseInFull.allowed && profiles.data.length >= profiles.per_page"
+                    :reason="browseInFull.reason"
+                    subject="candidates"
+                />
+
+                <PaginationNav v-if="browseInFull.allowed" :paginator="profiles" />
             </div>
         </div>
     </div>

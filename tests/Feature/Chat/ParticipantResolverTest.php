@@ -31,7 +31,7 @@ function queriesToResolve(array $ids): int
 }
 
 test('an employer resolves to their company name', function () {
-    $profile = EmployerProfile::factory()->create(['company_name' => 'Kerjago Labs']);
+    $profile = EmployerProfile::factory()->verified()->create(['company_name' => 'Kerjago Labs']);
 
     $resolved = resolver()->resolve([$profile->user_id]);
 
