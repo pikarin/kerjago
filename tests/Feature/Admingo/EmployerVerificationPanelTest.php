@@ -122,6 +122,19 @@ it('can still resolve the company it has just verified', function () {
         ->assertActionMounted(TestAction::make('publishProgress')->table($profile));
 });
 
+it('can still resolve the company from the requesters filter', function () {
+    $profile = EmployerProfile::factory()->verificationRequested()->create();
+    Job::factory()->pending()->for($profile, 'employerProfile')->create();
+
+    // The same trap as the default filter, one filter along: verifying clears
+    // `verification_requested_at` too, so the row stops matching "Asked to be
+    // verified" the instant the decision lands.
+    livewire(ListEmployerProfiles::class)
+        ->filterTable('requested')
+        ->callAction(TestAction::make('verify')->table($profile))
+        ->assertActionMounted(TestAction::make('publishProgress')->table($profile));
+});
+
 it('badges the companies that actually asked, not every unverified one', function () {
     EmployerProfile::factory()->verificationRequested()->count(2)->create();
     EmployerProfile::factory()->unverified()->create();

@@ -11,6 +11,7 @@ use App\Models\EmployerVerificationEvent;
 use App\Models\Job;
 use App\Models\User;
 use App\Notifications\EmployerVerified;
+use Illuminate\Bus\Batch;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 
@@ -104,6 +105,16 @@ class VerifyEmployer
             // silently halts the run.
             ->allowFailures()
             ->name('publish-pending-jobs:'.$employerProfile->id)
+            // Released when the run ends, so the "Publishing" action leaves the
+            // Admingo row instead of sitting there for good — and never outlives
+            // the batch itself, which `queue:prune-batches` eventually deletes.
+            // Matched on the id rather than the profile key so a revocation that
+            // has already cleared it, or a newer run, is left alone.
+            ->finally(function (Batch $finished): void {
+                EmployerProfile::query()
+                    ->where('publish_batch_id', $finished->id)
+                    ->update(['publish_batch_id' => null]);
+            })
             ->dispatch();
 
         // The batch is dispatched before its id can be stored, so there is a

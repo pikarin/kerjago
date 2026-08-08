@@ -22,7 +22,19 @@ class RequestVerification
             return $employerProfile;
         }
 
-        $employerProfile->forceFill(['verification_requested_at' => now()])->save();
+        // Conditional on the column still being null, so a double-submitted
+        // button cannot have both requests read null and both stamp — the later
+        // write would win and move the company down a queue sorted on this very
+        // timestamp.
+        $claimed = EmployerProfile::query()
+            ->whereKey($employerProfile->getKey())
+            ->whereNull('verified_at')
+            ->whereNull('verification_requested_at')
+            ->update(['verification_requested_at' => now()]);
+
+        if ($claimed > 0) {
+            $employerProfile->refresh();
+        }
 
         return $employerProfile;
     }

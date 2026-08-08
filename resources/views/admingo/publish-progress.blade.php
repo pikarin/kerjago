@@ -1,13 +1,20 @@
 {{--
     Live progress for the publish run a verification kicks off.
 
-    Polled rather than pushed: the run is short, the panel is internal, and a
-    three-second poll costs one indexed lookup. Closing this modal cancels
-    nothing — the batch is queued and finishes whether anyone is watching.
+    Polled rather than pushed: the run is short and the panel is internal.
+    Closing this modal cancels nothing — the batch is queued and finishes
+    whether anyone is watching.
+
+    Styled inline rather than with Tailwind utilities. The panel has no custom
+    Vite theme, so it loads only Filament's prebuilt stylesheet — which ships
+    `fi-*` component classes and none of the utilities a view like this one
+    would otherwise reach for. `h-2`, `bg-gray-200` and `text-danger-600` do not
+    exist there, and the bar would render as a zero-height invisible strip.
+    Colours are `color-mix`ed against `currentColor` so both themes read.
 --}}
-<div wire:poll.3s class="fi-section space-y-3">
+<div wire:poll.3s style="display: grid; gap: 0.75rem;">
     @if ($batch === null)
-        <p class="text-sm text-gray-500 dark:text-gray-400">
+        <p style="font-size: 0.875rem; opacity: 0.7;">
             Nothing was waiting to publish for {{ $company }}.
         </p>
     @else
@@ -22,35 +29,34 @@
             $percentage = (int) round(($processed / $total) * 100);
         @endphp
 
-        <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+        <div style="height: 0.5rem; width: 100%; overflow: hidden; border-radius: 9999px; background-color: color-mix(in srgb, currentColor 15%, transparent);">
             <div
-                class="h-full rounded-full bg-primary-600 transition-all"
-                style="width: {{ $percentage }}%"
+                style="height: 100%; border-radius: 9999px; background-color: var(--primary-600, #059669); transition: width 300ms ease; width: {{ $percentage }}%;"
             ></div>
         </div>
 
-        <p class="text-sm text-gray-700 dark:text-gray-300">
+        <p style="font-size: 0.875rem;">
             {{ $published }} of {{ $batch->totalJobs }} ads published.
         </p>
 
         @if ($batch->failedJobs > 0)
-            <p class="text-sm text-danger-600 dark:text-danger-400">
+            <p style="font-size: 0.875rem; color: var(--danger-600, #dc2626);">
                 {{ $batch->failedJobs }} could not be published. They are still
                 waiting, and the failure is in the application log.
             </p>
         @endif
 
         @if ($batch->cancelled())
-            <p class="text-sm text-warning-600 dark:text-warning-400">
+            <p style="font-size: 0.875rem; color: var(--warning-600, #d97706);">
                 This run was stopped — the company was unverified while it was
                 still going.
             </p>
         @elseif ($batch->finished())
-            <p class="text-sm font-medium text-success-600 dark:text-success-400">
+            <p style="font-size: 0.875rem; font-weight: 500; color: var(--success-600, #059669);">
                 Finished. You can close this.
             </p>
         @else
-            <p class="text-sm text-gray-500 dark:text-gray-400">
+            <p style="font-size: 0.875rem; opacity: 0.7;">
                 Still working. You can close this and come back — it keeps
                 going either way.
             </p>

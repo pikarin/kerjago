@@ -121,9 +121,14 @@ function publishJob(jobId: string): void {
                             <!-- Publishing stamps the 45-day clock, so it is a
                                  button rather than a status the edit form
                                  sends. Re-publishing an expired ad starts a
-                                 fresh window. -->
+                                 fresh window.
+
+                                 Hidden on a parked ad: publish has already been
+                                 asked for and declined, so the button would
+                                 re-submit into the same refusal — a control that
+                                 looks like it does something and cannot. -->
                             <Button
-                                v-if="!job.is_published"
+                                v-if="!job.is_published && job.status !== 'pending'"
                                 variant="ghost"
                                 size="sm"
                                 @click="publishJob(job.id)"

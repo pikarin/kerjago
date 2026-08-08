@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\EmployerProfile;
 use App\Models\User;
 use App\Support\Capabilities\EmployerCapabilities;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -40,16 +41,25 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         // Resolved once and handed to both: the two props describe the same
         // profile, and asking for it twice invites a second lookup the moment
         // either of them stops going through the relation's own cache.
-        $employerProfile = $this->employerProfile($request);
+        $employerProfile = $this->employerProfile($user);
 
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                // Relations are stripped rather than left attached. Resolving
+                // the props below hydrates `employerProfile` onto the signed-in
+                // user, and Eloquent serializes loaded relations — so the whole
+                // company row, `publish_batch_id` and `verified_by_id`
+                // included, would ride along inside `auth.user` on every single
+                // response. What the client needs from it is the `verification`
+                // prop, which says exactly as much as it should.
+                'user' => $user instanceof User ? $user->withoutRelations() : $user,
             ],
             'capabilities' => $this->capabilities($employerProfile),
             'verification' => $this->verification($employerProfile),
@@ -95,10 +105,8 @@ class HandleInertiaRequests extends Middleware
      * Null for guests, jobseekers, staff, and employers who have not filled in
      * their company profile yet — none of them are subject to these gates.
      */
-    private function employerProfile(Request $request): ?EmployerProfile
+    private function employerProfile(?Authenticatable $user): ?EmployerProfile
     {
-        $user = $request->user();
-
         return $user instanceof User && $user->isEmployer()
             ? $user->employerProfile
             : null;

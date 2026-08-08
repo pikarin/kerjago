@@ -56,6 +56,11 @@ const props = defineProps<{
     facets: Facets;
     facetsAvailable: boolean;
     browseInFull: CapabilityDecision;
+    /**
+     * Whether candidates beyond this page exist and are being withheld. Only
+     * the server can answer it: the page carries no total to compare against.
+     */
+    resultsWithheld: boolean;
     facetOptions: {
         experience_band: FacetOption[];
         availability: FacetOption[];
@@ -421,15 +426,15 @@ const hasFilters = computed(
                     the pool's depth cannot be counted off the page — the cards
                     above are the whole of what this account may see.
 
-                    Only shown on a full page. A search that returned three
-                    candidates has no fourth being withheld, and claiming
-                    otherwise is a lie the employer can check.
+                    Raised only when the server says something is genuinely
+                    being held back. A search that returned everything there was
+                    has no next candidate to withhold, and claiming otherwise is
+                    a lie the employer can check — which is why this is a
+                    server-supplied bit rather than a full page of results
+                    guessed at from `data.length`.
                 -->
                 <CapabilityWall
-                    v-if="
-                        !browseInFull.allowed &&
-                        profiles.data.length >= profiles.per_page
-                    "
+                    v-if="resultsWithheld"
                     :reason="browseInFull.reason"
                     subject="candidates"
                 />

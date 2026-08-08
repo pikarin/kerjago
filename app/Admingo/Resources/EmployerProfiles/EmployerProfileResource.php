@@ -139,20 +139,22 @@ class EmployerProfileResource extends Resource
                     ])
                     ->label('Ads waiting'),
             ])
+            // Both filters are excluded when an action resolves its record, or
+            // verifying from this list would break its own follow-up: verifying
+            // clears `verified_at` *and* `verification_requested_at`, so the
+            // company stops matching either filter the moment it is verified,
+            // and the progress modal would fail to find the row it was just
+            // opened for.
             ->filters([
                 Filter::make('unverified')
                     ->label('Not yet verified')
                     ->query(self::unverifiedQuery(...))
-                    // Excluded when an action resolves its record, or verifying
-                    // from this list would break its own follow-up: the company
-                    // stops matching the filter the moment it is verified, and
-                    // the progress modal would fail to find the row it was
-                    // just opened for.
                     ->excludeWhenResolvingRecord()
                     ->default(),
                 Filter::make('requested')
                     ->label('Asked to be verified')
-                    ->query(fn (Builder $query) => $query->whereNotNull('verification_requested_at')),
+                    ->query(fn (Builder $query) => $query->whereNotNull('verification_requested_at'))
+                    ->excludeWhenResolvingRecord(),
             ])
             // Requesters first, oldest ask at the top: the queue is worked in
             // the order people started waiting.
@@ -236,6 +238,8 @@ class EmployerProfileResource extends Resource
             ->label('Publishing')
             ->icon(Heroicon::OutlinedArrowPath)
             ->color('info')
+            // The id is cleared by the batch's own completion callback, so this
+            // is only ever true while a run is genuinely in flight.
             ->visible(fn (EmployerProfile $record): bool => $record->publish_batch_id !== null)
             ->modalHeading('Publishing waiting ads')
             ->modalContent(fn (EmployerProfile $record): View => view('admingo.publish-progress', [

@@ -96,6 +96,14 @@ class TalentController extends Controller
             'facets' => $browseInFull->allowed ? $result->facets : [],
             'facetsAvailable' => $browseInFull->allowed && $result->facetsAvailable,
             'browseInFull' => $browseInFull->toArray(),
+            // Whether anything is actually being held back, answered here
+            // because only the server still knows. The client sees a page of
+            // twelve and cannot tell a pool of twelve from a pool of twelve
+            // thousand — so left to guess from `data.length` it would raise the
+            // wall over a search that returned everything there was, which is a
+            // lie the employer can check. One bit, not the count.
+            'resultsWithheld' => $browseInFull->isDenied()
+                && $result->profiles->total() > $profiles->count(),
             'facetOptions' => [
                 'experience_band' => self::experienceBandOptions(),
                 'availability' => Availability::options(),

@@ -35,6 +35,23 @@ test('an unverified employer is told why their ads are waiting', function () {
         ->assertNoJavaScriptErrors();
 });
 
+test('a parked ad offers no Publish button to click again', function () {
+    Job::factory()->pending()->for($this->employer, 'employerProfile')->create([
+        'title' => 'Staff Platform Engineer',
+    ]);
+
+    $this->actingAs($this->employer->user);
+
+    $page = visit('/employer/jobs');
+
+    // Publish has already been asked for and declined. Offering the button
+    // again is a control that looks like it does something and cannot.
+    assertPageEventuallyShows($page, 'Staff Platform Engineer')
+        ->assertSee('Pending')
+        ->assertDontSee('Publish')
+        ->assertNoJavaScriptErrors();
+});
+
 test('publishing while unverified parks the ad and says so', function () {
     $job = Job::factory()->draft()->for($this->employer, 'employerProfile')->create([
         'title' => 'Staff Platform Engineer',

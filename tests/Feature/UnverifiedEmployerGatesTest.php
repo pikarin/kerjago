@@ -34,6 +34,24 @@ test('an unverified employer sees one page of candidates, with no depth', functi
             ->where('browseInFull.allowed', false)
             ->where('browseInFull.reason', 'verification_required')
             ->where('facetsAvailable', false)
+            ->where('resultsWithheld', true)
+        );
+});
+
+test('the wall stays down when the page held everything there was', function () {
+    // Exactly one page. `data.length >= per_page` is true here and there is no
+    // thirteenth candidate, so a client guessing from the page alone would put
+    // up a wall over a complete result — a lie the employer can check by
+    // counting. Only the server still knows the difference.
+    JobseekerProfile::factory(12)->create();
+
+    $this->actingAs(EmployerProfile::factory()->unverified()->create()->user)
+        ->get(route('employer.talent.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('profiles.data', 12)
+            ->where('browseInFull.allowed', false)
+            ->where('resultsWithheld', false)
         );
 });
 
