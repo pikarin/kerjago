@@ -14,6 +14,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
+import VerificationBanner from '@/components/VerificationBanner.vue';
 import { dashboard } from '@/routes';
 import { edit, update } from '@/routes/employer/profile';
 import { countryLabel } from '@/types/kerjago';
@@ -72,6 +73,8 @@ function submit(): void {
         <Alert v-if="status">
             <AlertDescription>{{ status }}</AlertDescription>
         </Alert>
+
+        <VerificationBanner />
 
         <form class="grid gap-6" @submit.prevent="submit">
             <div class="grid gap-2">

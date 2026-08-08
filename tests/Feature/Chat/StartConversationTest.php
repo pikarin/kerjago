@@ -29,7 +29,7 @@ function unlockedTarget(EmployerProfile $employer): JobseekerProfile
 }
 
 test('cold outreach opens a conversation with no context', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $target = unlockedTarget($employer);
 
     $conversation = app(StartColdOutreach::class)->handle($employer->user, $target);
@@ -46,7 +46,7 @@ test('cold outreach opens a conversation with no context', function () {
  * history across duplicates.
  */
 test('cold outreach is idempotent per employer and jobseeker pair', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $target = unlockedTarget($employer);
 
     $first = app(StartColdOutreach::class)->handle($employer->user, $target);
@@ -57,8 +57,8 @@ test('cold outreach is idempotent per employer and jobseeker pair', function () 
 });
 
 test('two employers reaching the same jobseeker get separate conversations', function () {
-    $first = EmployerProfile::factory()->create();
-    $second = EmployerProfile::factory()->create();
+    $first = EmployerProfile::factory()->verified()->create();
+    $second = EmployerProfile::factory()->verified()->create();
     $target = JobseekerProfile::factory()->create();
 
     foreach ([$first, $second] as $employer) {
@@ -79,7 +79,7 @@ test('two employers reaching the same jobseeker get separate conversations', fun
  * otherwise cold outreach would route straight around the mask (ADR 0013).
  */
 test('cold outreach is refused for a locked candidate', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $target = JobseekerProfile::factory()->create();
 
     expect(fn () => app(StartColdOutreach::class)->handle($employer->user, $target))
@@ -95,7 +95,7 @@ test('cold outreach is refused for a locked candidate', function () {
  * no way to recreate it.
  */
 test('re-unlocking restores a revoked cold-outreach thread', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $target = unlockedTarget($employer);
 
     $conversation = app(StartColdOutreach::class)->handle($employer->user, $target);
@@ -111,7 +111,7 @@ test('re-unlocking restores a revoked cold-outreach thread', function () {
 });
 
 test('cold outreach is refused once the unlock expires', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $target = JobseekerProfile::factory()->create();
 
     CandidateUnlock::factory()->expired()->create([
@@ -125,7 +125,7 @@ test('cold outreach is refused once the unlock expires', function () {
 
 test('staff can open an internal conversation with either side', function () {
     $staff = User::factory()->staff()->create();
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $jobseeker = JobseekerProfile::factory()->create();
 
     $withEmployer = app(StartInternalConversation::class)->handle($staff, $employer->user);
@@ -138,7 +138,7 @@ test('staff can open an internal conversation with either side', function () {
 });
 
 test('a non-staff user cannot open an internal conversation', function () {
-    $employer = EmployerProfile::factory()->create();
+    $employer = EmployerProfile::factory()->verified()->create();
     $jobseeker = JobseekerProfile::factory()->create();
 
     expect(fn () => app(StartInternalConversation::class)->handle($employer->user, $jobseeker->user))

@@ -15,6 +15,10 @@ class EmployerProfileFactory extends Factory
     /**
      * Define the model's default state.
      *
+     * Verified by default, so a test that has nothing to say about
+     * verification says nothing about it. Tests that do care state it either
+     * way explicitly.
+     *
      * @return array<string, mixed>
      */
     public function definition(): array
@@ -26,6 +30,41 @@ class EmployerProfileFactory extends Factory
             'country' => fake()->randomElement(['ID', 'SG', 'MY', 'PH', 'VN', 'TH']),
             'city' => fake()->city(),
             'website' => fake()->optional()->url(),
+            'verified_at' => now(),
+            'verified_by_id' => null,
         ];
+    }
+
+    /**
+     * A company that has not cleared verification — a fresh signup, or one
+     * staff has taken back out.
+     */
+    public function unverified(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'verified_at' => null,
+            'verified_by_id' => null,
+        ]);
+    }
+
+    /**
+     * Explicit counterpart to unverified(), for tests that want to say which
+     * side of the gate they are on rather than inherit it.
+     */
+    public function verified(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'verified_at' => now(),
+        ]);
+    }
+
+    /**
+     * An unverified company that has asked to be reviewed.
+     */
+    public function verificationRequested(): static
+    {
+        return $this->unverified()->state(fn (array $attributes) => [
+            'verification_requested_at' => now(),
+        ]);
     }
 }

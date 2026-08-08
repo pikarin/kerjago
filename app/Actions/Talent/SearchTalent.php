@@ -32,12 +32,16 @@ class SearchTalent
      * filtering without facet counts.
      *
      * @param  TalentFilters  $filters
+     * @param  int|null  $page  Explicit page, for callers that must pin one.
+     *                          Null resolves it from the request as usual.
      */
-    public function handle(array $filters, int $perPage = 12): TalentSearchResult
+    public function handle(array $filters, int $perPage = 12, ?int $page = null): TalentSearchResult
     {
+        $page ??= Paginator::resolveCurrentPage();
+
         if (config('scout.driver') === 'typesense') {
             try {
-                return $this->searchTypesense($filters, $perPage);
+                return $this->searchTypesense($filters, $perPage, $page);
             } catch (Throwable $e) {
                 Log::warning('Typesense talent search failed, falling back to database.', [
                     'message' => $e->getMessage(),
@@ -45,16 +49,15 @@ class SearchTalent
             }
         }
 
-        return new TalentSearchResult($this->searchDatabase($filters, $perPage));
+        return new TalentSearchResult($this->searchDatabase($filters, $perPage, $page));
     }
 
     /**
      * @param  TalentFilters  $filters
      */
-    private function searchTypesense(array $filters, int $perPage): TalentSearchResult
+    private function searchTypesense(array $filters, int $perPage, int $page): TalentSearchResult
     {
         $keyword = trim((string) ($filters['q'] ?? ''));
-        $page = Paginator::resolveCurrentPage();
 
         $raw = JobseekerProfile::search($keyword === '' ? '*' : $keyword)
             ->options(TalentSearchQuery::options($filters, $page, $perPage))
@@ -99,7 +102,7 @@ class SearchTalent
      * @param  TalentFilters  $filters
      * @return LengthAwarePaginator<int, JobseekerProfile>
      */
-    private function searchDatabase(array $filters, int $perPage): LengthAwarePaginator
+    private function searchDatabase(array $filters, int $perPage, int $page): LengthAwarePaginator
     {
         return JobseekerProfile::query()
             ->with(['user:id,email', 'workExperiences', 'educations', 'languages'])
@@ -148,7 +151,7 @@ class SearchTalent
             ->when($filters['experience_band'] ?? null, fn ($query, array $bands) => $this->applyExperienceBands($query, $bands))
             ->when($filters['experience_min'] ?? null, fn ($query, int $years) => $query->where('experience_years', '>=', $years))
             ->latest()
-            ->paginate($perPage)
+            ->paginate($perPage, ['*'], 'page', $page)
             ->withQueryString();
     }
 

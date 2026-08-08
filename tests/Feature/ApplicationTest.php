@@ -85,7 +85,7 @@ test('employer can view applicants for their own job', function () {
 
 test('employer cannot view applicants for another employer\'s job', function () {
     $application = Application::factory()->create();
-    $otherEmployer = EmployerProfile::factory()->create();
+    $otherEmployer = EmployerProfile::factory()->verified()->create();
 
     $this->actingAs($otherEmployer->user)
         ->get(route('employer.jobs.applicants', $application->job))
@@ -106,7 +106,7 @@ test('employer can update an applicant\'s status', function () {
 
 test('employer cannot update statuses on another employer\'s applicants', function () {
     $application = Application::factory()->create();
-    $otherEmployer = EmployerProfile::factory()->create();
+    $otherEmployer = EmployerProfile::factory()->verified()->create();
 
     $this->actingAs($otherEmployer->user)
         ->patch(route('employer.applications.status.update', $application), [
@@ -167,7 +167,7 @@ test('other employers cannot download the resume snapshot', function () {
         'resume_path' => UploadedFile::fake()->create('snapshot.pdf', 10)->store('applications', 'local'),
     ]);
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('applications.resume', $application))
         ->assertForbidden();
 });

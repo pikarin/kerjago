@@ -38,7 +38,7 @@ test('employer without a profile is redirected to profile setup', function () {
 });
 
 test('employer with a profile can post a job', function () {
-    $profile = EmployerProfile::factory()->create();
+    $profile = EmployerProfile::factory()->verified()->create();
 
     $this->actingAs($profile->user)
         ->post(route('employer.jobs.store'), validJobPayload())
@@ -51,7 +51,7 @@ test('employer with a profile can post a job', function () {
 });
 
 test('the form cannot put a job live directly', function () {
-    $profile = EmployerProfile::factory()->create();
+    $profile = EmployerProfile::factory()->verified()->create();
 
     $this->actingAs($profile->user)
         ->post(route('employer.jobs.store'), validJobPayload(['status' => 'active']))
@@ -59,7 +59,7 @@ test('the form cannot put a job live directly', function () {
 });
 
 test('job validation rejects bad input', function (array $overrides, string $errorField) {
-    $profile = EmployerProfile::factory()->create();
+    $profile = EmployerProfile::factory()->verified()->create();
 
     $this->actingAs($profile->user)
         ->post(route('employer.jobs.store'), validJobPayload($overrides))
@@ -77,7 +77,7 @@ test('job validation rejects bad input', function (array $overrides, string $err
 ]);
 
 test('posting a job persists the facet fields', function () {
-    $profile = EmployerProfile::factory()->create();
+    $profile = EmployerProfile::factory()->verified()->create();
 
     $this->actingAs($profile->user)
         ->post(route('employer.jobs.store'), validJobPayload());
@@ -119,7 +119,7 @@ test('employer can update their own job', function () {
 
 test('employer cannot update another employer\'s job', function () {
     $job = Job::factory()->create();
-    $otherEmployer = EmployerProfile::factory()->create();
+    $otherEmployer = EmployerProfile::factory()->verified()->create();
 
     $this->actingAs($otherEmployer->user)
         ->put(route('employer.jobs.update', $job), validJobPayload())
@@ -133,7 +133,7 @@ test('jobseeker cannot access employer job management', function () {
 });
 
 test('employer job list shows only their own jobs', function () {
-    $profile = EmployerProfile::factory()->create();
+    $profile = EmployerProfile::factory()->verified()->create();
     Job::factory(2)->recycle($profile)->create();
     Job::factory()->create();
 

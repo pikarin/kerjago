@@ -2,11 +2,13 @@
 
 namespace App\Actions\Jobs;
 
+use App\Enums\EmployerCapability;
 use App\Enums\JobStatus;
 use App\Models\Job;
+use App\Support\Capabilities\EmployerCapabilities;
 
 /**
- * Put a job ad live.
+ * Put a job ad live, or park it where a capability gate left it.
  *
  * Publishing is its own Action rather than a status value the edit form can
  * set, because it is the only moment the expiry clock may be stamped.
@@ -20,9 +22,17 @@ use App\Models\Job;
  *
  * A genuinely expired ad starts a new window, without recovering the unlock
  * slots the previous run spent.
+ *
+ * The capability check lives here rather than in middleware or a policy because
+ * this Action is reached from outside HTTP — the batch that runs when a company
+ * is verified calls it directly, and that is precisely the path where letting
+ * an ad through would put it live for a company that may not have one. One
+ * Action, both invariants.
  */
 class PublishJob
 {
+    public function __construct(private EmployerCapabilities $capabilities) {}
+
     public function handle(Job $job): Job
     {
         // Nothing to do, and worth returning early: an unconditional save still
@@ -30,6 +40,10 @@ class PublishJob
         // cost a Typesense upsert per click.
         if ($job->isPublished()) {
             return $job;
+        }
+
+        if ($this->capabilities->for($job->employerProfile, EmployerCapability::PublishJob)->isDenied()) {
+            return $this->park($job);
         }
 
         $attributes = ['status' => JobStatus::Active];
@@ -42,6 +56,40 @@ class PublishJob
         }
 
         $job->forceFill($attributes)->save();
+
+        return $job;
+    }
+
+    /**
+     * The ad was written and submitted; a gate declined it. It waits in Pending
+     * with **no clock stamped**, so the 45 days start when it actually goes
+     * live rather than burning while it is invisible.
+     *
+     * A window that has already lapsed is cleared on the way in. Left stamped —
+     * as it is when an expired ad is re-published behind the gate — `jobs:expire`
+     * would sweep the parked ad straight back to Expired, out of the Pending
+     * queue VerifyEmployer publishes from, and the employer would be told their
+     * ad was waiting on a verification that will never pick it up. A window that
+     * is still running is kept: that ad comes back on its remaining days.
+     */
+    private function park(Job $job): Job
+    {
+        $attributes = ['status' => JobStatus::Pending];
+
+        if (! $job->hasRunningWindow()) {
+            $attributes['expires_at'] = null;
+        }
+
+        $job->forceFill($attributes);
+
+        // Same reasoning as the isPublished() guard: re-submitting an ad that is
+        // already parked, with nothing left to clear, should not cost a write
+        // and a Scout round trip.
+        if (! $job->isDirty()) {
+            return $job;
+        }
+
+        $job->save();
 
         return $job;
     }

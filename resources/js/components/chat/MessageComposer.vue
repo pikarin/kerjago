@@ -1,22 +1,48 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { SendHorizontal } from '@lucide/vue';
+import { computed } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import { useCapabilities } from '@/composables/useCapabilities';
 import { store as sendMessage } from '@/routes/chat/messages';
 
-const props = defineProps<{
-    conversationId: string;
-}>();
+const props = withDefaults(
+    defineProps<{
+        conversationId: string;
+        /**
+         * False leaves the thread readable and closes the composer — a company
+         * whose standing has lapsed still sees what a candidate wrote, it just
+         * cannot reply.
+         */
+        canSend?: boolean;
+    }>(),
+    { canSend: true },
+);
 
 const emit = defineEmits<{
     typing: [];
 }>();
 
+/**
+ * Why the composer is closed, taken from the capability rather than assumed.
+ *
+ * `can_send_message` is a bare boolean, so the reason has to come from the
+ * capability map — otherwise the moment a second denial reason exists, an
+ * employer held back for some other cause is told to get verified.
+ */
+const { decision } = useCapabilities();
+
+const deniedMessage = computed(() =>
+    decision('participate_in_chat').reason === 'verification_required'
+        ? "You can read this conversation, but you can't reply until your company is verified."
+        : "You can read this conversation, but you can't reply to it.",
+);
+
 const form = useForm({ body: '' });
 
 function submit(): void {
-    if (form.body.trim() === '') {
+    if (!props.canSend || form.body.trim() === '') {
         return;
     }
 
@@ -31,7 +57,14 @@ function submit(): void {
 </script>
 
 <template>
-    <form class="border-t pt-3" @submit.prevent="submit">
+    <p
+        v-if="!canSend"
+        class="mt-3 rounded-md border border-dashed bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+    >
+        {{ deniedMessage }}
+    </p>
+
+    <form v-else class="border-t pt-3" @submit.prevent="submit">
         <div class="flex items-end gap-2">
             <textarea
                 v-model="form.body"

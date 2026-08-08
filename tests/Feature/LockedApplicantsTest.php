@@ -76,7 +76,7 @@ test('another employer sees no teaser for a candidate who applied elsewhere', fu
     app(ApplyToJob::class)->handle(JobseekerProfile::factory()->create(), $job);
     CandidateUnlock::query()->delete();
 
-    $this->actingAs(EmployerProfile::factory()->create()->user)
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
         ->get(route('chat.index'))
         ->assertInertia(fn ($page) => $page->has('lockedApplicants', 0));
 });

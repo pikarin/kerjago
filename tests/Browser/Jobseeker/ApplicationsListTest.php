@@ -67,7 +67,7 @@ test('a jobseeker without a profile is redirected to the profile form', function
 });
 
 test('an employer has no jobseeker applications page at all', function () {
-    $this->actingAs(EmployerProfile::factory()->create()->user);
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user);
 
     $page = visit('/applications');
 
