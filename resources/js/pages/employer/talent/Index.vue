@@ -426,12 +426,18 @@ const hasFilters = computed(
                     otherwise is a lie the employer can check.
                 -->
                 <CapabilityWall
-                    v-if="!browseInFull.allowed && profiles.data.length >= profiles.per_page"
+                    v-if="
+                        !browseInFull.allowed &&
+                        profiles.data.length >= profiles.per_page
+                    "
                     :reason="browseInFull.reason"
                     subject="candidates"
                 />
 
-                <PaginationNav v-if="browseInFull.allowed" :paginator="profiles" />
+                <PaginationNav
+                    v-if="browseInFull.allowed"
+                    :paginator="profiles"
+                />
             </div>
         </div>
     </div>

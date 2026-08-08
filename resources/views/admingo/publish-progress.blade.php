@@ -12,9 +12,14 @@
         </p>
     @else
         @php
+            // A failure decrements pendingJobs just as a success does, so
+            // "processed" is what drives the bar and "published" is what the
+            // count reports — otherwise the run would read "5 of 5 published"
+            // directly above "2 could not be published".
             $total = max($batch->totalJobs, 1);
-            $done = $batch->totalJobs - $batch->pendingJobs;
-            $percentage = (int) round(($done / $total) * 100);
+            $processed = $batch->totalJobs - $batch->pendingJobs;
+            $published = max($processed - $batch->failedJobs, 0);
+            $percentage = (int) round(($processed / $total) * 100);
         @endphp
 
         <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
@@ -25,7 +30,7 @@
         </div>
 
         <p class="text-sm text-gray-700 dark:text-gray-300">
-            {{ $done }} of {{ $batch->totalJobs }} ads published.
+            {{ $published }} of {{ $batch->totalJobs }} ads published.
         </p>
 
         @if ($batch->failedJobs > 0)

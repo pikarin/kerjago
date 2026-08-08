@@ -22,25 +22,22 @@ const { verification } = useCapabilities();
  * suggesting how far, which is the one thing an unverified account should not
  * be able to read off the page.
  */
-const placeholders = computed(() => [0, 1, 2, 3, 4, 5]);
+const placeholders = [0, 1, 2, 3, 4, 5];
 
+// `?? null` rather than a bare `!== null`: a viewer with no verification prop
+// at all yields undefined, and undefined is not null — the call to action would
+// be replaced by "your request is with our team" for someone who never asked.
 const alreadyRequested = computed(
-    () => verification.value?.requested_at !== null,
+    () => (verification.value?.requested_at ?? null) !== null,
 );
 
-const copy = computed(() => {
-    if (props.reason === 'verification_required') {
-        return {
-            title: `There are more ${props.subject ?? 'results'} here`,
-            body: 'Verify your company to search the full list, see who matches your filters, and message candidates directly.',
-        };
-    }
-
-    return {
-        title: `There are more ${props.subject ?? 'results'} here`,
-        body: 'Your account cannot see the full list yet.',
-    };
-});
+const copy = computed(() => ({
+    title: `There are more ${props.subject ?? 'results'} here`,
+    body:
+        props.reason === 'verification_required'
+            ? 'Verify your company to search the full list, see who matches your filters, and message candidates directly.'
+            : 'Your account cannot see the full list yet.',
+}));
 </script>
 
 <template>

@@ -142,7 +142,7 @@ class EmployerProfileResource extends Resource
             ->filters([
                 Filter::make('unverified')
                     ->label('Not yet verified')
-                    ->query(fn (Builder $query) => $query->whereNull('verified_at'))
+                    ->query(self::unverifiedQuery(...))
                     // Excluded when an action resolves its record, or verifying
                     // from this list would break its own follow-up: the company
                     // stops matching the filter the moment it is verified, and
@@ -317,13 +317,29 @@ class EmployerProfileResource extends Resource
     }
 
     /**
+     * "Not yet verified", deferred to the model scope so the panel and the
+     * domain cannot drift on what unverified means.
+     *
+     * A named method rather than an inline closure: Filament hands filters an
+     * ungenericised Builder, and the scope only resolves against one that
+     * declares its model.
+     *
+     * @param  Builder<EmployerProfile>  $query
+     * @return Builder<EmployerProfile>
+     */
+    private static function unverifiedQuery(Builder $query): Builder
+    {
+        return $query->unverified();
+    }
+
+    /**
      * How many companies are waiting on an answer they asked for. Companies
      * that never asked are still listed, but they are not a queue.
      */
     public static function getNavigationBadge(): ?string
     {
         $waiting = EmployerProfile::query()
-            ->whereNull('verified_at')
+            ->unverified()
             ->whereNotNull('verification_requested_at')
             ->count();
 

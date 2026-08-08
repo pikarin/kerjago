@@ -37,6 +37,42 @@ it('parks a job rather than publishing it when the employer may not publish', fu
         ->and($job->expires_at)->toBeNull();
 });
 
+it('clears a lapsed window when it parks an ad, so the expiry sweep leaves it alone', function () {
+    $profile = EmployerProfile::factory()->unverified()->create();
+    // Re-publishing an expired ad is a supported flow — the jobs list offers
+    // it as "Re-publish". Parked with its old expiry still stamped, jobs:expire
+    // would take it straight back to Expired, out of the Pending queue
+    // VerifyEmployer publishes from, after the employer was told it was waiting.
+    $job = Job::factory()->expired()->for($profile, 'employerProfile')->create();
+
+    app(PublishJob::class)->handle($job);
+
+    expect($job->refresh()->status)->toBe(JobStatus::Pending)
+        ->and($job->expires_at)->toBeNull();
+
+    $this->artisan('jobs:expire')->assertSuccessful();
+
+    expect($job->refresh()->status)->toBe(JobStatus::Pending);
+
+    app(VerifyEmployer::class)->handle($profile, $this->staff);
+
+    expect($job->refresh()->status)->toBe(JobStatus::Active)
+        ->and($job->expires_at?->isFuture())->toBeTrue();
+});
+
+it('keeps a running window when it parks an ad', function () {
+    $profile = EmployerProfile::factory()->verified()->create();
+    $job = Job::factory()->for($profile, 'employerProfile')->create();
+    $expiresAt = $job->expires_at;
+
+    app(UnverifyEmployer::class)->handle($profile, 'Parked mid-window', $this->staff);
+    // Re-submitting a parked ad must not restamp or drop the days it has left.
+    app(PublishJob::class)->handle($job->refresh());
+
+    expect($job->refresh()->status)->toBe(JobStatus::Pending)
+        ->and($job->expires_at?->eq($expiresAt))->toBeTrue();
+});
+
 it('publishes normally when the employer may publish', function () {
     $profile = EmployerProfile::factory()->verified()->create();
     $job = Job::factory()->draft()->for($profile, 'employerProfile')->create();

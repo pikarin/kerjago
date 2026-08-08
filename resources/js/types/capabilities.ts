@@ -8,9 +8,7 @@
  * user clicks it.
  */
 export type EmployerCapabilityName =
-    | 'publish_job'
-    | 'browse_talent_in_full'
-    | 'participate_in_chat';
+    'publish_job' | 'browse_talent_in_full' | 'participate_in_chat';
 
 /**
  * Why a capability is withheld. Picks the copy: "verify your company" today,

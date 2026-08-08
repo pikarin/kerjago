@@ -33,9 +33,7 @@ export type UseCapabilitiesReturn = {
 export function useCapabilities(): UseCapabilitiesReturn {
     const page = usePage();
 
-    const decision = (
-        capability: EmployerCapabilityName,
-    ): CapabilityDecision =>
+    const decision = (capability: EmployerCapabilityName): CapabilityDecision =>
         page.props.capabilities?.[capability] ?? DENIED_WITHOUT_PROFILE;
 
     return {

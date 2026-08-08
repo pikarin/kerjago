@@ -40,14 +40,19 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // Resolved once and handed to both: the two props describe the same
+        // profile, and asking for it twice invites a second lookup the moment
+        // either of them stops going through the relation's own cache.
+        $employerProfile = $this->employerProfile($request);
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
             ],
-            'capabilities' => $this->capabilities($request),
-            'verification' => $this->verification($request),
+            'capabilities' => $this->capabilities($employerProfile),
+            'verification' => $this->verification($employerProfile),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }
@@ -62,10 +67,8 @@ class HandleInertiaRequests extends Middleware
      *
      * @return array<string, array{allowed: bool, reason: string|null}>|null
      */
-    private function capabilities(Request $request): ?array
+    private function capabilities(?EmployerProfile $employerProfile): ?array
     {
-        $employerProfile = $this->employerProfile($request);
-
         return $employerProfile === null ? null : $this->capabilities->map($employerProfile);
     }
 
@@ -76,10 +79,8 @@ class HandleInertiaRequests extends Middleware
      *
      * @return array{verified: bool, requested_at: string|null}|null
      */
-    private function verification(Request $request): ?array
+    private function verification(?EmployerProfile $employerProfile): ?array
     {
-        $employerProfile = $this->employerProfile($request);
-
         if ($employerProfile === null) {
             return null;
         }

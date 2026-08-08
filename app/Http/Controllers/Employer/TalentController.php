@@ -150,13 +150,13 @@ class TalentController extends Controller
     {
         $items = $profiles->getCollection();
 
-        return new LengthAwarePaginator(
+        return (new LengthAwarePaginator(
             $items,
             $items->count(),
             self::RESULTS_PER_PAGE,
             1,
             ['path' => Paginator::resolveCurrentPath()],
-        );
+        ))->withQueryString();
     }
 
     /**

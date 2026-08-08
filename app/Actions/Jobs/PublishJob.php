@@ -64,16 +64,32 @@ class PublishJob
      * The ad was written and submitted; a gate declined it. It waits in Pending
      * with **no clock stamped**, so the 45 days start when it actually goes
      * live rather than burning while it is invisible.
+     *
+     * A window that has already lapsed is cleared on the way in. Left stamped —
+     * as it is when an expired ad is re-published behind the gate — `jobs:expire`
+     * would sweep the parked ad straight back to Expired, out of the Pending
+     * queue VerifyEmployer publishes from, and the employer would be told their
+     * ad was waiting on a verification that will never pick it up. A window that
+     * is still running is kept: that ad comes back on its remaining days.
      */
     private function park(Job $job): Job
     {
+        $attributes = ['status' => JobStatus::Pending];
+
+        if (! $job->hasRunningWindow()) {
+            $attributes['expires_at'] = null;
+        }
+
+        $job->forceFill($attributes);
+
         // Same reasoning as the isPublished() guard: re-submitting an ad that is
-        // already parked should not cost a write and a Scout round trip.
-        if ($job->status === JobStatus::Pending) {
+        // already parked, with nothing left to clear, should not cost a write
+        // and a Scout round trip.
+        if (! $job->isDirty()) {
             return $job;
         }
 
-        $job->forceFill(['status' => JobStatus::Pending])->save();
+        $job->save();
 
         return $job;
     }
