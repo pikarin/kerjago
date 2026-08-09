@@ -34,25 +34,33 @@ class SeedTalentData extends Command
             return self::FAILURE;
         }
 
-        $db = config('database.connections.'.config('database.default'));
+        $db = config()->array('database.connections.'.config()->string('database.default'));
+        $password = $this->stringValue($db, 'password');
         $dsn = sprintf(
             'postgres://%s%s@%s:%s/%s',
-            $db['username'],
-            $db['password'] !== '' && $db['password'] !== null ? ':'.$db['password'] : '',
-            $db['host'],
-            $db['port'],
-            $db['database'],
+            $this->stringValue($db, 'username'),
+            $password === '' ? '' : ':'.$password,
+            $this->stringValue($db, 'host'),
+            $this->stringValue($db, 'port'),
+            $this->stringValue($db, 'database'),
         );
 
-        $typesense = config('scout.typesense.client-settings');
-        $node = $typesense['nodes'][0];
+        $typesense = config()->array('scout.typesense.client-settings');
+        $node = is_array($typesense['nodes'] ?? null) && is_array($typesense['nodes'][0] ?? null)
+            ? $typesense['nodes'][0]
+            : [];
 
         $process = new Process([
             $binary, 'reset',
             '--in', $data,
             '--dsn', $dsn,
-            '--url', sprintf('%s://%s:%s', $node['protocol'], $node['host'], $node['port']),
-            '--key', $typesense['api_key'],
+            '--url', sprintf(
+                '%s://%s:%s',
+                $this->stringValue($node, 'protocol', 'http'),
+                $this->stringValue($node, 'host', '127.0.0.1'),
+                $this->stringValue($node, 'port', '8108'),
+            ),
+            '--key', $this->stringValue($typesense, 'api_key'),
         ], timeout: 300);
 
         $exitCode = $process->run(function (string $type, string $buffer): void {
@@ -68,5 +76,18 @@ class SeedTalentData extends Command
         $this->info('Talent demo data ready: 13k jobseekers seeded and indexed.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Read a scalar config value as a string, since nested config arrays are
+     * untyped and the seedgen CLI only accepts string flags.
+     *
+     * @param  array<array-key, mixed>  $config
+     */
+    private function stringValue(array $config, string $key, string $default = ''): string
+    {
+        $value = $config[$key] ?? null;
+
+        return is_scalar($value) ? (string) $value : $default;
     }
 }
