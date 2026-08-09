@@ -91,6 +91,10 @@ class TalentController extends Controller
             ))->resolve()),
             // Cast so an empty filter set serializes as {} rather than [].
             'filters' => (object) $filters,
+            // Which card fields each hit matched on, for field-level tinting.
+            // Field names only — no engine snippets, so nothing masked can
+            // leak through an echo of document text. Cast for {} vs [].
+            'highlights' => (object) $result->highlights,
             // Counts are a depth signal in their own right: "240 candidates in
             // Jakarta" tells an unvetted account how deep the pool runs.
             'facets' => $browseInFull->allowed ? $result->facets : [],

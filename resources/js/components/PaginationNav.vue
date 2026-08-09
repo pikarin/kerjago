@@ -6,6 +6,15 @@ defineProps<{
     paginator: Paginated<unknown>;
 }>();
 
+/**
+ * Paired with preserve-scroll on the links: Inertia's default scroll reset
+ * would snap to the top before the new page has rendered, so the visit keeps
+ * the scroll position and this glides up once the swap has happened.
+ */
+function scrollToTop(): void {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function plainLabel(label: string): string {
     return label
         .replace('&laquo;', '«')
@@ -30,6 +39,7 @@ function plainLabel(label: string): string {
                     v-if="link.url"
                     :href="link.url"
                     preserve-scroll
+                    @success="scrollToTop"
                     class="flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-sm transition-colors"
                     :class="
                         link.active

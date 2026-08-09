@@ -1,60 +1,45 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
-import {
-    CalendarClock,
-    ChevronsUpDown,
-    MapPin,
-    Search,
-    UserX,
-} from '@lucide/vue';
+import { Head, router } from '@inertiajs/vue3';
+import { Search, SlidersHorizontal, UserX } from '@lucide/vue';
 import { watchDebounced } from '@vueuse/core';
 import { computed, reactive, ref } from 'vue';
 import CapabilityWall from '@/components/CapabilityWall.vue';
 import EmptyState from '@/components/EmptyState.vue';
-import FacetGroup from '@/components/FacetGroup.vue';
 import Heading from '@/components/Heading.vue';
-import LockedBadge from '@/components/LockedBadge.vue';
 import PaginationNav from '@/components/PaginationNav.vue';
-import SkillTags from '@/components/SkillTags.vue';
+import TalentCard from '@/components/TalentCard.vue';
+import TalentFilterPanel from '@/components/TalentFilterPanel.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet';
 import { dashboard } from '@/routes';
-import { index, show } from '@/routes/employer/talent';
+import { index } from '@/routes/employer/talent';
 import type { CapabilityDecision } from '@/types/capabilities';
-import { countryLabel } from '@/types/kerjago';
 import type {
     FacetOption,
     Facets,
     Paginated,
+    TalentFilterForm,
     TalentSummary,
 } from '@/types/kerjago';
 
 const props = defineProps<{
     profiles: Paginated<TalentSummary>;
-    filters: {
-        q?: string | null;
-        preferred_job_title?: string[] | null;
-        skills?: string[] | null;
-        experience_band?: string[] | null;
-        availability?: string[] | null;
-        country?: string[] | null;
-        city?: string[] | null;
-        preferred_country?: string[] | null;
-        preferred_city?: string[] | null;
-        languages?: string[] | null;
-        education_level?: string[] | null;
-        gender?: string[] | null;
-        experience_min?: number | null;
-    };
+    filters: Partial<TalentFilterForm> & { q?: string | null };
     facets: Facets;
     facetsAvailable: boolean;
+    /**
+     * Profile id => card fields the engine matched the keyword on. Field
+     * names only; the card tints those fields whole.
+     */
+    highlights: Record<string, string[]>;
     browseInFull: CapabilityDecision;
     /**
      * Whether candidates beyond this page exist and are being withheld. Only
@@ -81,337 +66,167 @@ defineOptions({
     },
 });
 
-const AVAILABILITY_LABELS: Record<string, string> = {
-    immediately: 'Available now',
-    two_weeks: 'In 2 weeks',
-    one_month: 'In 1 month',
-    two_months_plus: 'In 2+ months',
-};
+// The keyword only travels on an explicit submit (button or Enter)…
+const keyword = ref(props.filters.q ?? '');
 
-const form = reactive({
-    q: props.filters.q ?? '',
-    preferred_job_title: props.filters.preferred_job_title ?? [],
-    skills: props.filters.skills ?? [],
+// …while the sidebar filters apply themselves as they change.
+const form = reactive<TalentFilterForm>({
     experience_band: props.filters.experience_band ?? [],
     availability: props.filters.availability ?? [],
     country: props.filters.country ?? [],
-    city: props.filters.city ?? [],
     preferred_country: props.filters.preferred_country ?? [],
-    preferred_city: props.filters.preferred_city ?? [],
     languages: props.filters.languages ?? [],
     education_level: props.filters.education_level ?? [],
     gender: props.filters.gender ?? [],
     experience_min: props.filters.experience_min ?? '',
 });
 
-// The secondary facets start open when one of them is already active.
-const moreFiltersOpen = ref(
-    form.preferred_country.length > 0 ||
-        form.preferred_city.length > 0 ||
-        form.languages.length > 0 ||
-        form.education_level.length > 0 ||
-        form.gender.length > 0,
-);
+function search(): void {
+    const params = Object.fromEntries(
+        Object.entries({ q: keyword.value.trim(), ...form }).filter(
+            ([, value]) =>
+                value !== '' &&
+                value !== null &&
+                !(Array.isArray(value) && value.length === 0),
+        ),
+    );
 
-// These facets have no fixed option list — offer whatever the engine
-// surfaces, keeping currently-selected values visible even at zero count.
-function engineOptions(facet: string, selected: string[]): FacetOption[] {
-    const fromCounts = (props.facets[facet] ?? []).map((c) => ({
-        value: c.value,
-        label: c.value,
-    }));
-    const missing = selected
-        .filter((s) => !fromCounts.some((o) => o.value === s))
-        .map((s) => ({ value: s, label: s }));
-
-    return [...fromCounts, ...missing];
+    router.get(index().url, params, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
 }
 
-const titleOptions = computed<FacetOption[]>(() =>
-    engineOptions('preferred_job_title', form.preferred_job_title),
-);
-const skillOptions = computed<FacetOption[]>(() =>
-    engineOptions('skills', form.skills),
-);
-const cityOptions = computed<FacetOption[]>(() =>
-    engineOptions('city', form.city),
-);
-const preferredCityOptions = computed<FacetOption[]>(() =>
-    engineOptions('preferred_city', form.preferred_city),
-);
-
-// Debounced search per the PRD: wait 300ms after the user stops typing.
-watchDebounced(
-    form,
-    () => {
-        router.get(
-            index().url,
-            Object.fromEntries(
-                Object.entries(form).filter(
-                    ([, value]) =>
-                        value !== '' &&
-                        value !== null &&
-                        !(Array.isArray(value) && value.length === 0),
-                ),
-            ),
-            { preserveState: true, preserveScroll: true, replace: true },
-        );
-    },
-    { debounce: 300, deep: true },
-);
+// Debounced so ticking three checkboxes in a row costs one request, not three.
+watchDebounced(form, search, { debounce: 300, deep: true });
 
 function clearFilters(): void {
-    form.q = '';
-    form.preferred_job_title = [];
-    form.skills = [];
     form.experience_band = [];
     form.availability = [];
     form.country = [];
-    form.city = [];
     form.preferred_country = [];
-    form.preferred_city = [];
     form.languages = [];
     form.education_level = [];
     form.gender = [];
     form.experience_min = '';
 }
 
-const hasFilters = computed(
+const activeFilterCount = computed(
     () =>
-        form.q !== '' ||
-        form.experience_min !== '' ||
         [
-            form.preferred_job_title,
-            form.skills,
             form.experience_band,
             form.availability,
             form.country,
-            form.city,
             form.preferred_country,
-            form.preferred_city,
             form.languages,
             form.education_level,
             form.gender,
-        ].some((values) => values.length > 0),
+        ].filter((values) => values.length > 0).length +
+        (form.experience_min === '' ? 0 : 1),
 );
+
+const hasFilters = computed(() => activeFilterCount.value > 0);
 </script>
 
 <template>
     <Head title="Talent search" />
 
-    <div class="grid gap-6 p-4">
+    <div class="mx-auto grid w-full max-w-6xl gap-6 p-4">
         <Heading
             title="Talent search"
             description="Find candidates by role, experience, or skills across Southeast Asia."
         />
 
-        <div class="lg:grid lg:grid-cols-[16rem_1fr] lg:items-start lg:gap-8">
-            <aside class="mb-6 grid gap-6 lg:mb-0">
-                <FacetGroup
-                    v-if="facetsAvailable && titleOptions.length > 0"
-                    v-model="form.preferred_job_title"
-                    title="Preferred job title"
-                    :options="titleOptions"
-                    :counts="facets.preferred_job_title ?? []"
-                />
-                <FacetGroup
-                    v-if="facetsAvailable && skillOptions.length > 0"
-                    v-model="form.skills"
-                    title="Skills"
-                    :options="skillOptions"
-                    :counts="facets.skills ?? []"
-                />
-                <FacetGroup
-                    v-model="form.experience_band"
-                    title="Experience"
-                    :options="facetOptions.experience_band"
-                    :counts="
-                        facetsAvailable
-                            ? (facets.experience_band ?? [])
-                            : undefined
-                    "
-                />
-                <FacetGroup
-                    v-model="form.availability"
-                    title="Availability"
-                    :options="facetOptions.availability"
-                    :counts="
-                        facetsAvailable
-                            ? (facets.availability ?? [])
-                            : undefined
-                    "
-                />
-                <FacetGroup
-                    v-model="form.country"
-                    title="Country"
-                    :options="facetOptions.country"
-                    :counts="
-                        facetsAvailable ? (facets.country ?? []) : undefined
-                    "
-                />
-                <FacetGroup
-                    v-if="facetsAvailable && cityOptions.length > 0"
-                    v-model="form.city"
-                    title="City"
-                    :options="cityOptions"
-                    :counts="facets.city ?? []"
-                />
+        <form
+            class="flex items-center gap-2 rounded-xl border bg-card p-2 shadow-sm"
+            @submit.prevent="search"
+        >
+            <Search class="ml-3 size-5 shrink-0 text-muted-foreground" />
+            <Input
+                v-model="keyword"
+                type="search"
+                placeholder="Try a role, a skill, or what the work involves…"
+                class="h-12 border-0 !bg-transparent text-base shadow-none focus-visible:ring-0 dark:!bg-transparent"
+            />
+            <Button type="submit" size="lg" class="shrink-0">
+                <Search class="size-4" />
+                Search
+            </Button>
+        </form>
 
-                <div class="grid gap-2">
-                    <span class="text-sm font-medium">Minimum experience</span>
-                    <Input
-                        v-model.number="form.experience_min"
-                        type="number"
-                        min="0"
-                        placeholder="Min years exp."
-                    />
-                </div>
-
-                <Collapsible v-model:open="moreFiltersOpen" class="grid gap-6">
-                    <CollapsibleTrigger as-child>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            class="justify-self-start"
-                        >
-                            <ChevronsUpDown class="size-4" />
-                            More filters
-                        </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent class="grid gap-6">
-                        <FacetGroup
-                            v-model="form.preferred_country"
-                            title="Preferred country"
-                            :options="facetOptions.preferred_country"
-                            :counts="
-                                facetsAvailable
-                                    ? (facets.preferred_country ?? [])
-                                    : undefined
-                            "
-                        />
-                        <FacetGroup
-                            v-if="
-                                facetsAvailable &&
-                                preferredCityOptions.length > 0
-                            "
-                            v-model="form.preferred_city"
-                            title="Preferred city"
-                            :options="preferredCityOptions"
-                            :counts="facets.preferred_city ?? []"
-                        />
-                        <FacetGroup
-                            v-model="form.languages"
-                            title="Languages"
-                            :options="facetOptions.languages"
-                            :counts="
-                                facetsAvailable
-                                    ? (facets.languages ?? [])
-                                    : undefined
-                            "
-                        />
-                        <FacetGroup
-                            v-model="form.education_level"
-                            title="Education"
-                            :options="facetOptions.education_level"
-                            :counts="
-                                facetsAvailable
-                                    ? (facets.education_level ?? [])
-                                    : undefined
-                            "
-                        />
-                        <FacetGroup
-                            v-model="form.gender"
-                            title="Gender"
-                            :options="facetOptions.gender"
-                            :counts="
-                                facetsAvailable
-                                    ? (facets.gender ?? [])
-                                    : undefined
-                            "
-                        />
-                    </CollapsibleContent>
-                </Collapsible>
-
-                <Button
-                    v-if="hasFilters"
-                    variant="ghost"
-                    size="sm"
-                    class="justify-self-start"
-                    @click="clearFilters"
+        <div class="flex items-center justify-between gap-4 lg:hidden">
+            <Sheet>
+                <SheetTrigger as-child>
+                    <Button variant="outline">
+                        <SlidersHorizontal class="size-4" />
+                        Filters
+                        <Badge v-if="hasFilters" variant="secondary">
+                            {{ activeFilterCount }}
+                        </Badge>
+                    </Button>
+                </SheetTrigger>
+                <SheetContent
+                    side="left"
+                    class="w-80 overflow-y-auto px-4 pb-8"
                 >
-                    Clear filters
-                </Button>
+                    <SheetHeader class="px-0">
+                        <SheetTitle>Filters</SheetTitle>
+                    </SheetHeader>
+                    <TalentFilterPanel
+                        v-model="form"
+                        :facets="facets"
+                        :facets-available="facetsAvailable"
+                        :facet-options="facetOptions"
+                        :has-filters="hasFilters"
+                        @clear="clearFilters"
+                    />
+                </SheetContent>
+            </Sheet>
+
+            <p
+                v-if="browseInFull.allowed"
+                class="text-sm text-muted-foreground"
+            >
+                {{ profiles.total }}
+                {{ profiles.total === 1 ? 'candidate' : 'candidates' }} found
+            </p>
+        </div>
+
+        <div class="lg:grid lg:grid-cols-[16rem_1fr] lg:items-start lg:gap-8">
+            <!-- Sticky offset matches the h-16 app header it parks under. -->
+            <aside
+                class="sticky top-16 hidden max-h-[calc(100svh-4rem)] overflow-y-auto rounded-xl border p-4 lg:block"
+            >
+                <TalentFilterPanel
+                    v-model="form"
+                    :facets="facets"
+                    :facets-available="facetsAvailable"
+                    :facet-options="facetOptions"
+                    :has-filters="hasFilters"
+                    @clear="clearFilters"
+                />
             </aside>
 
             <div class="grid gap-4">
-                <div class="relative">
-                    <Search
-                        class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                    />
-                    <Input
-                        v-model="form.q"
-                        type="search"
-                        placeholder="Search by role, skill, or location…"
-                        class="h-11 pl-9"
-                    />
-                </div>
-
-                <div
-                    v-if="profiles.data.length > 0"
-                    class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+                <p
+                    v-if="browseInFull.allowed"
+                    class="hidden text-sm text-muted-foreground lg:block"
                 >
-                    <Link
+                    {{ profiles.total }}
+                    {{ profiles.total === 1 ? 'candidate' : 'candidates' }}
+                    found
+                </p>
+
+                <template v-if="profiles.data.length > 0">
+                    <TalentCard
                         v-for="profile in profiles.data"
                         :key="profile.id"
-                        :href="show(profile.id)"
-                        class="group"
-                    >
-                        <Card
-                            class="h-full transition-shadow group-hover:shadow-md"
-                        >
-                            <CardHeader>
-                                <CardTitle
-                                    class="flex items-center gap-2 text-base group-hover:text-primary"
-                                >
-                                    {{ profile.full_name }}
-                                    <LockedBadge v-if="profile.is_locked" />
-                                </CardTitle>
-                                <p class="text-sm text-muted-foreground">
-                                    {{
-                                        profile.preferred_job_title ??
-                                        profile.current_title
-                                    }}
-                                    · {{ profile.experience_years }} yrs
-                                </p>
-                            </CardHeader>
-                            <CardContent class="grid gap-3">
-                                <p
-                                    class="flex items-center gap-1.5 text-sm text-muted-foreground"
-                                >
-                                    <MapPin class="size-3.5" />
-                                    {{ profile.city }},
-                                    {{ countryLabel(profile.country) }}
-                                </p>
-                                <SkillTags
-                                    :skills="profile.skills"
-                                    :limit="4"
-                                />
-                                <Badge
-                                    v-if="profile.availability"
-                                    variant="secondary"
-                                    class="justify-self-start"
-                                >
-                                    <CalendarClock class="size-3" />
-                                    {{
-                                        AVAILABILITY_LABELS[
-                                            profile.availability
-                                        ]
-                                    }}
-                                </Badge>
-                            </CardContent>
-                        </Card>
-                    </Link>
-                </div>
+                        :profile="profile"
+                        :matched-fields="highlights[profile.id] ?? []"
+                        :filters="form"
+                    />
+                </template>
 
                 <EmptyState
                     v-else

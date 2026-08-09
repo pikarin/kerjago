@@ -18,7 +18,11 @@ withDefaults(defineProps<Props>(), {
 <template>
     <AppShell variant="sidebar">
         <AppSidebar />
-        <AppContent variant="sidebar" class="overflow-x-hidden">
+        <!-- No overflow utility here: any non-visible overflow on this
+             ancestor would silently disable the sticky app header below,
+             because the header would start sticking to a box that never
+             scrolls instead of the document. -->
+        <AppContent variant="sidebar">
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
             <slot />
         </AppContent>

@@ -27,9 +27,11 @@ final class TalentSearchQuery
     private const string QUERY_BY_WEIGHTS = '10,8,6,3,3,2,1,1,1';
 
     /**
-     * Facet request param => Typesense document field.
+     * Filter request param => Typesense document field. Wider than the facets
+     * the UI shows: params like `skills` or `city` no longer have a sidebar
+     * control but stay filterable for old bookmarked URLs and API consumers.
      */
-    private const array FACET_FIELDS = [
+    private const array FILTER_FIELDS = [
         'preferred_job_title' => 'preferred_job_title',
         'skills' => 'skills',
         'experience_band' => 'experience_band',
@@ -41,6 +43,37 @@ final class TalentSearchQuery
         'languages' => 'language_codes',
         'education_level' => 'education_level',
         'gender' => 'gender',
+    ];
+
+    /**
+     * Document fields counts are requested for — only the fixed-option
+     * filters the sidebar presents. Engine-derived facets (job titles,
+     * skills, cities) are no longer offered, so their counts are not paid for.
+     */
+    private const array FACET_BY = [
+        'experience_band',
+        'availability',
+        'country',
+        'preferred_country',
+        'language_codes',
+        'education_level',
+        'gender',
+    ];
+
+    /**
+     * Typesense document field => card field its match should tint. Doubles
+     * as the whitelist: anything the engine highlights outside this map
+     * (including the embedding leg) is dropped.
+     */
+    private const array HIGHLIGHT_FIELD_MAP = [
+        'preferred_job_title' => 'preferred_job_title',
+        'experience_titles' => 'current_title',
+        'skills' => 'skills',
+        'summary' => 'summary',
+        'current_company' => 'current_company',
+        'education_institutions' => 'education_level',
+        'location' => 'location',
+        'preferred_location' => 'preferred_location',
     ];
 
     /**
@@ -64,7 +97,7 @@ final class TalentSearchQuery
         $keyword = trim((string) ($filters['q'] ?? ''));
 
         $options = [
-            'facet_by' => implode(',', array_values(self::FACET_FIELDS)),
+            'facet_by' => implode(',', self::FACET_BY),
             'max_facet_values' => 30,
             'page' => $page,
             'per_page' => $perPage,
@@ -83,6 +116,9 @@ final class TalentSearchQuery
 
         $options['query_by'] = self::QUERY_BY;
         $options['query_by_weights'] = self::QUERY_BY_WEIGHTS;
+        // Only the fields the card can tint; trims the highlight payload and
+        // keeps the embedding leg out of it.
+        $options['highlight_fields'] = implode(',', array_keys(self::HIGHLIGHT_FIELD_MAP));
         $options['vector_query'] = sprintf(
             'embedding:([], distance_threshold: %.2f)',
             self::VECTOR_DISTANCE_THRESHOLD,
@@ -103,7 +139,7 @@ final class TalentSearchQuery
     {
         $clauses = [];
 
-        foreach (self::FACET_FIELDS as $param => $field) {
+        foreach (self::FILTER_FIELDS as $param => $field) {
             $values = array_values(array_filter((array) ($filters[$param] ?? [])));
 
             if ($values !== []) {
@@ -127,6 +163,46 @@ final class TalentSearchQuery
     public static function parseFacetCounts(array $facetCounts): array
     {
         return JobSearchQuery::parseFacetCounts($facetCounts);
+    }
+
+    /**
+     * Extract which card fields a single Typesense hit matched on, for
+     * field-level tinting. Snippets and matched tokens are deliberately
+     * discarded — the UI tints whole values, so only the field names travel,
+     * and no engine-echoed document text ever reaches the client.
+     *
+     * Reads the `highlight` object (keys are matched document fields) and
+     * falls back to the legacy `highlights` array. Unknown fields — anything
+     * outside HIGHLIGHT_FIELD_MAP — are dropped.
+     *
+     * @param  array<mixed>  $hit
+     * @return list<string>
+     */
+    public static function parseHighlights(array $hit): array
+    {
+        $fields = [];
+
+        $highlight = $hit['highlight'] ?? null;
+
+        if (is_array($highlight) && $highlight !== []) {
+            $fields = array_keys($highlight);
+        } else {
+            foreach (is_array($hit['highlights'] ?? null) ? $hit['highlights'] : [] as $entry) {
+                if (is_array($entry) && is_string($entry['field'] ?? null)) {
+                    $fields[] = $entry['field'];
+                }
+            }
+        }
+
+        $mapped = [];
+
+        foreach ($fields as $field) {
+            if (is_string($field) && isset(self::HIGHLIGHT_FIELD_MAP[$field])) {
+                $mapped[self::HIGHLIGHT_FIELD_MAP[$field]] = true;
+            }
+        }
+
+        return array_keys($mapped);
     }
 
     /**
