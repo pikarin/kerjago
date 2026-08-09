@@ -194,6 +194,65 @@ export type TalentDetail = TalentProfile & {
     educations: EducationItem[];
 };
 
+// Everything the talent search sidebar can filter on. Wider filters (skills,
+// cities, job titles) remain valid as URL params server-side, but the UI only
+// offers these fixed-option groups.
+export type TalentFilterForm = {
+    experience_band: string[];
+    availability: string[];
+    country: string[];
+    preferred_country: string[];
+    languages: string[];
+    education_level: string[];
+    gender: string[];
+    experience_min: number | '';
+};
+
+export const AVAILABILITY_LABELS: Record<Availability, string> = {
+    immediately: 'Available immediately',
+    two_weeks: 'Available in 2 weeks',
+    one_month: 'Available in 1 month',
+    two_months_plus: 'Available in 2+ months',
+};
+
+export const EDUCATION_LABELS: Record<EducationLevel, string> = {
+    none: 'No formal education',
+    high_school: 'High school',
+    diploma: 'Diploma',
+    bachelor: "Bachelor's degree",
+    master: "Master's degree",
+    doctorate: 'Doctorate',
+};
+
+export const SALARY_PERIOD_LABELS: Record<SalaryPeriod, string> = {
+    monthly: 'per month',
+    yearly: 'per year',
+    hourly: 'per hour',
+};
+
+export const PROFICIENCY_LABELS: Record<LanguageProficiency, string> = {
+    basic: 'Basic',
+    good: 'Good',
+    fluent: 'Fluent',
+    native: 'Native',
+};
+
+export const LANGUAGE_LABELS: Record<LanguageCode, string> = {
+    id: 'Indonesian',
+    en: 'English',
+    ms: 'Malay',
+    zh: 'Mandarin',
+    th: 'Thai',
+    vi: 'Vietnamese',
+    tl: 'Tagalog',
+};
+
+export const GENDER_LABELS: Record<Gender, string> = {
+    male: 'Male',
+    female: 'Female',
+    prefer_not_to_say: 'Prefers not to say',
+};
+
 export const COUNTRY_LABELS: Record<CountryCode, string> = {
     ID: 'Indonesia',
     SG: 'Singapore',

@@ -72,12 +72,17 @@ class SearchTalent
         $facetCounts = is_array($raw['facet_counts'] ?? null) ? $raw['facet_counts'] : [];
 
         $ids = [];
+        $highlights = [];
 
         foreach ($hits as $hit) {
             $document = is_array($hit) ? ($hit['document'] ?? null) : null;
 
             if (is_array($document) && is_string($document['id'] ?? null)) {
                 $ids[] = $document['id'];
+
+                if (($matched = TalentSearchQuery::parseHighlights($hit)) !== []) {
+                    $highlights[$document['id']] = $matched;
+                }
             }
         }
 
@@ -92,7 +97,7 @@ class SearchTalent
             'path' => Paginator::resolveCurrentPath(),
         ]))->withQueryString();
 
-        return new TalentSearchResult($paginator, TalentSearchQuery::parseFacetCounts($facetCounts), true);
+        return new TalentSearchResult($paginator, TalentSearchQuery::parseFacetCounts($facetCounts), true, $highlights);
     }
 
     /**

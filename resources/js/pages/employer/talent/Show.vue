@@ -18,7 +18,15 @@ import SkillTags from '@/components/SkillTags.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/employer/talent';
-import { countryLabel, formatSalaryRange } from '@/types/kerjago';
+import {
+    AVAILABILITY_LABELS,
+    countryLabel,
+    EDUCATION_LABELS,
+    formatSalaryRange,
+    LANGUAGE_LABELS,
+    PROFICIENCY_LABELS,
+    SALARY_PERIOD_LABELS,
+} from '@/types/kerjago';
 import type { TalentDetail } from '@/types/kerjago';
 
 defineProps<{
@@ -34,45 +42,6 @@ defineOptions({
         ],
     },
 });
-
-const AVAILABILITY_LABELS: Record<string, string> = {
-    immediately: 'Available immediately',
-    two_weeks: 'Available in 2 weeks',
-    one_month: 'Available in 1 month',
-    two_months_plus: 'Available in 2+ months',
-};
-
-const EDUCATION_LABELS: Record<string, string> = {
-    none: 'No formal education',
-    high_school: 'High school',
-    diploma: 'Diploma',
-    bachelor: "Bachelor's degree",
-    master: "Master's degree",
-    doctorate: 'Doctorate',
-};
-
-const PERIOD_LABELS: Record<string, string> = {
-    monthly: 'per month',
-    yearly: 'per year',
-    hourly: 'per hour',
-};
-
-const PROFICIENCY_LABELS: Record<string, string> = {
-    basic: 'Basic',
-    good: 'Good',
-    fluent: 'Fluent',
-    native: 'Native',
-};
-
-const LANGUAGE_LABELS: Record<string, string> = {
-    id: 'Indonesian',
-    en: 'English',
-    ms: 'Malay',
-    zh: 'Mandarin',
-    th: 'Thai',
-    vi: 'Vietnamese',
-    tl: 'Tagalog',
-};
 
 function formatMonth(value: string): string {
     const [year, month] = value.split('-');
@@ -214,7 +183,11 @@ function formatMonth(value: string): string {
                             )
                         }}
                         <span v-if="profile.expected_salary_period">
-                            {{ PERIOD_LABELS[profile.expected_salary_period] }}
+                            {{
+                                SALARY_PERIOD_LABELS[
+                                    profile.expected_salary_period
+                                ]
+                            }}
                         </span>
                     </p>
                     <p

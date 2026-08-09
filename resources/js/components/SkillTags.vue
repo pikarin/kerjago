@@ -5,8 +5,11 @@ withDefaults(
     defineProps<{
         skills: string[];
         limit?: number;
+        // Tints the whole set — talent search marks skills as a matched
+        // field per hit, not per individual skill.
+        highlighted?: boolean;
     }>(),
-    { limit: 0 },
+    { limit: 0, highlighted: false },
 );
 </script>
 
@@ -16,6 +19,7 @@ withDefaults(
             v-for="skill in limit > 0 ? skills.slice(0, limit) : skills"
             :key="skill"
             variant="secondary"
+            :class="highlighted ? 'font-semibold text-primary' : ''"
         >
             {{ skill }}
         </Badge>

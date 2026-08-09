@@ -189,6 +189,17 @@ test('database fallback reports facets as unavailable', function () {
         );
 });
 
+test('database fallback sends an empty highlights map', function () {
+    JobseekerProfile::factory()->minimal()->create(['current_title' => 'Chef', 'skills' => ['Cooking']]);
+
+    $this->actingAs(EmployerProfile::factory()->verified()->create()->user)
+        ->get(route('employer.talent.index', ['q' => 'chef']))
+        ->assertInertia(fn ($page) => $page->has('profiles.data', 1))
+        // Serialized as an object, never an array, so the client type
+        // Record<string, string[]> holds even when nothing matched.
+        ->assertSee('"highlights":{}', escape: false);
+});
+
 test('talent search survives an unreachable typesense server via the database fallback', function () {
     JobseekerProfile::factory()->create();
 

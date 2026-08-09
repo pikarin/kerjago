@@ -7,10 +7,11 @@ use App\Models\EmployerProfile;
 use App\Models\JobseekerProfile;
 
 /**
- * Talent search carries the same debounced client-side filter machinery as the
- * public job board, plus a "More filters" collapsible that hides half the facets
- * until it is opened — so a filter can be present in the props and unreachable
- * on the page, which is the kind of gap only a browser test closes.
+ * Talent search splits its triggers: sidebar filters apply themselves
+ * (debounced) while the keyword waits for an explicit submit via the Search
+ * button or Enter. There is also a "More filters" collapsible that hides half
+ * the facets until it is opened — so a filter can be present in the props and
+ * unreachable on the page, which is the kind of gap only a browser test closes.
  *
  * The keyword search reads name, both titles, company, summary *and* skills, so
  * the fixtures below pin every one of them. The factory's skill pool includes
@@ -50,9 +51,11 @@ test('an employer narrows the candidate list by keyword', function () {
 
     $page = visit('/employer/talent');
 
+    // Typing alone must not search — the keyword travels on submit only.
     assertPageEventuallyShows($page, 'Rina K.')
         ->assertSee('Budi S.')
-        ->fill('[type="search"]', 'Laravel');
+        ->fill('[type="search"]', 'Laravel')
+        ->click('Search');
 
     assertPageEventuallyHides($page, 'Budi S.')
         ->assertSee('Rina K.')
@@ -96,7 +99,8 @@ test('a search that matches nobody shows the empty state', function () {
     $page = visit('/employer/talent');
 
     assertPageEventuallyShows($page, 'Rina K.')
-        ->fill('[type="search"]', 'Underwater Basket Weaver');
+        ->fill('[type="search"]', 'Underwater Basket Weaver')
+        ->click('Search');
 
     assertPageEventuallyShows($page, 'No candidates found')
         ->assertDontSee('Rina K.')
