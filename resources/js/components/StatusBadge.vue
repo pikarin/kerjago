@@ -12,7 +12,7 @@ const styles: Record<string, string> = {
     pending:
         'border-transparent bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300',
     active: 'border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
-    closed: 'border-transparent bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
+    closed: 'border-transparent bg-muted text-muted-foreground',
     expired:
         'border-transparent bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300',
     submitted:
