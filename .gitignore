@@ -37,5 +37,8 @@ AGENTS.md
 /.junie
 /.claude
 /.ai
+/.local-tools
+/.scratch
+/.mcp.json
 /storage/framework/testing
 /tests/Browser/Screenshots
